@@ -151,6 +151,19 @@ button.prow:not(.on) .pamt{opacity:.45}
 .stepper button{width:40px;height:40px;border:0;background:transparent;font-size:20px;font-weight:700;color:var(--accent)}
 .stepper input{width:54px;height:40px;border:0;text-align:center;background:transparent;font-weight:800;outline:none;padding:0}
 .item-in{width:112px;height:42px;text-align:right;flex:none;font-weight:700;font-variant-numeric:tabular-nums}
+.shared-box{margin:4px 0 12px;padding:12px;border-radius:14px;border:1.5px solid var(--line);background:var(--card)}
+.shared-head{margin-bottom:10px}
+.shared-head b{display:block;font-size:14px}
+.shared-head span{font-size:12.5px;color:var(--muted);font-weight:600}
+.shared-item{padding:10px;border-radius:12px;background:var(--bg);margin-bottom:8px}
+.shared-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.shared-row .input:first-child{flex:1;min-width:0}
+.chips.sm{gap:6px}
+.chips.sm .chip-btn{height:34px;padding:0 12px;font-size:14px}
+.shared-per{font-size:12.5px;color:var(--muted);font-weight:600;margin-top:6px}
+.splitin{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;flex-wrap:wrap}
+.splitin>span{font-size:13px;color:var(--muted);font-weight:700}
+.splitin .seg{flex:1;min-width:220px}
 .calc{margin-top:6px;padding:14px;border-radius:14px;background:var(--bg);border:1px dashed var(--line2)}
 .calc h3{font-size:14px;margin-bottom:10px}
 .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
@@ -246,6 +259,20 @@ details summary{cursor:pointer;font-weight:700;color:var(--accent);font-size:14p
 .backdrop{position:absolute;inset:0;background:rgba(8,10,18,.5);animation:fade .18s ease}
 .sheet{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;max-height:calc(100% - 20px - env(safe-area-inset-top));background:var(--bg);border-radius:22px 22px 0 0;display:flex;flex-direction:column;animation:up .24s cubic-bezier(.2,.8,.2,1);overflow:hidden}
 .sheet.tall{height:calc(100% - 20px - env(safe-area-inset-top))}
+/* 帳本下拉選單：從標題按鈕下方展開 */
+.sheet.drop{top:var(--drop-top,72px);bottom:auto;width:calc(100% - 24px);max-width:536px;max-height:calc(100% - var(--drop-top,72px) - 16px);border-radius:18px;border:1px solid var(--line);box-shadow:0 22px 48px -16px rgba(0,0,0,.45);animation:drop .2s cubic-bezier(.2,.8,.2,1);transform-origin:top left}
+.sheet.drop .sheet-body{padding:10px}
+.sheet.drop .sheet-foot{padding:10px;border-radius:0}
+.drop-title{font-size:12px;font-weight:800;color:var(--muted);padding:2px 6px 8px;letter-spacing:.5px}
+#sheet-root.is-drop .backdrop{background:rgba(8,10,18,.28)}
+body.drop-open #top{z-index:55}
+.ledger-btn svg{transition:transform .2s}
+body.drop-open .ledger-btn{border-color:var(--accent)}
+body.drop-open .ledger-btn svg{transform:rotate(180deg)}
+/* 關閉動畫：從哪裡出來就往哪裡收回 */
+#sheet-root.closing .backdrop{opacity:0;transition:opacity .18s}
+#sheet-root.closing .sheet{animation:none;transform:translateY(100%);transition:transform .2s ease-in}
+#sheet-root.closing .sheet.drop{transform:translateY(-8px) scale(.97);opacity:0;transition:transform .16s ease-in,opacity .16s ease-in}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--line);flex:none}
 .sheet-head b{font-size:16px}
 .sheet-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 14px}
@@ -258,6 +285,7 @@ details summary{cursor:pointer;font-weight:700;color:var(--accent);font-size:14p
 .dlg-btns .btn{flex:1}
 .dialog textarea{width:100%;min-height:200px;border:1.5px solid var(--line);border-radius:12px;padding:10px;background:var(--bg)}
 @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes drop{from{opacity:0;transform:translateY(-10px) scale(.97)}}
 @keyframes fade{from{opacity:0}}
 @keyframes pop{from{transform:scale(.94);opacity:0}}
 #toast{position:fixed;z-index:80;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--card);padding:11px 18px;border-radius:14px;font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:.2s;max-width:calc(100% - 40px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.2)}
@@ -412,6 +440,11 @@ function normalizeExpense(e) {
     participants: Array.isArray(e.participants) ? e.participants.map(String) : [],
     shares: objMap(e.shares, v => String(v)), items: objMap(e.items, v => Math.max(0, Math.round(+v || 0))),
     service: String(e.service || ''), discount: Math.max(0, Math.round(+e.discount || 0)),
+    // 各自點單裡「大家一起分攤」的品項：[{ name, amount, members:[id] }]
+    shared: (Array.isArray(e.shared) ? e.shared : []).filter(x => x && typeof x === 'object')
+      .map(x => ({ name: String(x.name || '').slice(0, 40), amount: Math.max(0, Math.round(+x.amount || 0)), members: Array.isArray(x.members) ? x.members.map(String) : [] })),
+    // 外幣消費的分攤計算幣別：orig＝用消費當下的幣別分攤；main＝換成主幣別再分攤
+    splitIn: e.splitIn === 'orig' ? 'orig' : 'main',
     note: String(e.note || '').slice(0, 200), createdAt: +e.createdAt || 0, updatedAt: +e.updatedAt || 0
   };
 }
@@ -483,28 +516,53 @@ function allocate(total, weights, salt = '') {
   for (const k in out) out[k] = Number(out[k]);
   return out;
 }
+const gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
 function expenseWeights(e, idSet) {
   if (e.mode === 'shares') return Object.entries(e.shares || {}).filter(([id]) => idSet.has(id)).map(([id, s]) => [id, parseScaled(s, 3) || 0n]);
-  if (e.mode === 'itemized') return Object.entries(e.items || {}).filter(([id]) => idSet.has(id)).map(([id, c]) => [id, BigInt(Math.max(0, Math.round(+c || 0)))]);
+  if (e.mode === 'itemized') {
+    // 每人的權重＝自己的點餐＋分到的共享品項（共享品項在勾選的人之間均分）
+    // 全部乘上各品項分攤人數的最小公倍數 D，讓均分後仍是整數、比例完全精確
+    const sh = (e.shared || []).map(x => ({ a: BigInt(Math.max(0, Math.round(+x.amount || 0))), ms: (x.members || []).filter(id => idSet.has(id)) })).filter(x => x.a > 0n && x.ms.length);
+    let D = 1n; for (const x of sh) { const n = BigInt(x.ms.length); D = D / gcd(D, n) * n; }
+    const w = new Map();
+    for (const [id, c] of Object.entries(e.items || {})) if (idSet.has(id)) w.set(id, BigInt(Math.max(0, Math.round(+c || 0))) * D);
+    for (const x of sh) { const per = x.a * D / BigInt(x.ms.length); for (const id of x.ms) w.set(id, (w.get(id) || 0n) + per); }
+    return [...w];
+  }
   return (e.participants || []).filter(id => idSet.has(id)).map(id => [id, 1n]);
 }
 function itemCalc(e) {
-  const subtotal = Object.values(e.items || {}).reduce((a, c) => a + (+c || 0), 0);
+  const own = Object.values(e.items || {}).reduce((a, c) => a + (+c || 0), 0);
+  const sharedSum = (e.shared || []).reduce((a, x) => a + (+x.amount || 0), 0);
+  const subtotal = own + sharedSum;
   const bp = parseScaled(e.service, 2) || 0n; // 百分比 ×100
   const svc = Number(divRound(BigInt(subtotal) * bp, 10000n));
   const disc = e.discount || 0;
-  return { subtotal, svc, disc, calc: Math.max(0, subtotal + svc - disc) };
+  return { own, sharedSum, subtotal, svc, disc, calc: Math.max(0, subtotal + svc - disc) };
 }
+// 沒有小數位的幣別：用原幣分攤時以 1 元為單位，不會出現 ¥333.34 這種金額
+const ZERO_DEC = new Set(['JPY', 'KRW', 'VND', 'IDR', 'TWD', 'CLP', 'ISK', 'HUF']);
 function computeExpense(L, e) {
   const ids = new Set(L.members.map(m => m.id));
-  const main = toMain(L, e.amount || 0, e.currency || L.mainCurrency);
+  const code = e.currency || L.mainCurrency;
+  const main = toMain(L, e.amount || 0, code);
   if (main == null) return { main: null, shares: null, error: `缺少 ${e.currency} 的匯率` };
   const order = new Map(L.members.map((m, i) => [m.id, i]));
   const w = expenseWeights(e, ids).sort((a, b) => order.get(a[0]) - order.get(b[0]));
-  const shares = allocate(main, w, e.id || '');
+  let shares, sharesOrig = null;
+  if (e.splitIn === 'orig' && code !== L.mainCurrency) {
+    // 先用原幣分攤，再依各人的原幣金額比例換算成主幣別（總和仍與換算後總額完全相等）
+    const unit = ZERO_DEC.has(code) && (e.amount || 0) % 100 === 0 ? 100 : 1;
+    const so = allocate((e.amount || 0) / unit, w, e.id || '');
+    if (so) {
+      for (const k in so) so[k] *= unit;
+      sharesOrig = so;
+      shares = allocate(main, Object.entries(so).map(([k, c]) => [k, BigInt(c)]), e.id || '') || Object.fromEntries(Object.keys(so).map(k => [k, 0]));
+    }
+  } else shares = allocate(main, w, e.id || '');
   if (!shares) return { main, shares: null, error: '沒有分攤對象' };
-  if (!ids.has(e.payer)) return { main, shares, error: '付款人已不在成員名單' };
-  return { main, shares, error: null };
+  if (!ids.has(e.payer)) return { main, shares, sharesOrig, error: '付款人已不在成員名單' };
+  return { main, shares, sharesOrig, error: null };
 }
 function computeLedger(L) {
   const per = {}; for (const m of L.members) per[m.id] = { paid: 0, owed: 0, net: 0 };
@@ -604,10 +662,14 @@ function packLedger(L) {
   const e = L.expenses.map(x => {
     let m = 0, d;
     if (x.mode === 'shares') { m = 1; d = Object.entries(x.shares).filter(([id]) => idx.has(id)).map(([id, s]) => [idx.get(id), s]); }
-    else if (x.mode === 'itemized') { m = 2; d = [Object.entries(x.items).filter(([id]) => idx.has(id)).map(([id, c]) => [idx.get(id), c]), x.service, x.discount]; }
+    else if (x.mode === 'itemized') {
+      m = 2; d = [Object.entries(x.items).filter(([id]) => idx.has(id)).map(([id, c]) => [idx.get(id), c]), x.service, x.discount];
+      if (x.shared.length) d.push(x.shared.map(y => [y.name, y.amount, y.members.filter(id => idx.has(id)).map(id => idx.get(id))]));
+    }
     else d = x.participants.filter(id => idx.has(id)).map(id => idx.get(id));
     const row = [x.title, x.amount, x.currency === L.mainCurrency ? 0 : x.currency, idx.has(x.payer) ? idx.get(x.payer) : -1, x.date, m, d];
-    if (x.note) row.push(x.note);
+    if (x.note || x.splitIn === 'orig') row.push(x.note || '');
+    if (x.splitIn === 'orig') row.push(1);
     return row;
   });
   const s = Object.entries(L.settled).map(([k, a]) => { const [f, t] = k.split('_'); return idx.has(f) && idx.has(t) ? [idx.get(f), idx.get(t), +a] : null; }).filter(Boolean);
@@ -621,10 +683,10 @@ function unpackLedger(p) {
   L.members = (p.m || []).map((name, i) => ({ id: uid(), name, createdAt: i }));
   const id = i => L.members[i]?.id;
   L.expenses = (p.e || []).map((r, i) => {
-    const [title, amount, cur, payer, date, m, d, note] = r;
-    const e = { id: uid(), title, amount, currency: cur || L.mainCurrency, payer: id(payer) || '', date, mode: ['equal', 'shares', 'itemized'][m] || 'equal', participants: [], shares: {}, items: {}, service: '', discount: 0, note: note || '', createdAt: i };
+    const [title, amount, cur, payer, date, m, d, note, si] = r;
+    const e = { id: uid(), title, amount, currency: cur || L.mainCurrency, payer: id(payer) || '', date, mode: ['equal', 'shares', 'itemized'][m] || 'equal', participants: [], shares: {}, items: {}, service: '', discount: 0, shared: [], splitIn: si ? 'orig' : 'main', note: note || '', createdAt: i };
     if (m === 1) for (const [j, s] of d) { if (id(j)) e.shares[id(j)] = s; }
-    else if (m === 2) { for (const [j, c] of d[0]) { if (id(j)) e.items[id(j)] = c; } e.service = d[1] || ''; e.discount = d[2] || 0; }
+    else if (m === 2) { for (const [j, c] of d[0]) { if (id(j)) e.items[id(j)] = c; } e.service = d[1] || ''; e.discount = d[2] || 0; e.shared = (d[3] || []).map(([name, amt, ms]) => ({ name, amount: amt, members: ms.map(id).filter(Boolean) })); }
     else e.participants = d.map(id).filter(Boolean);
     return e;
   });
@@ -684,13 +746,26 @@ function avatar(L, id, sm) {
   const m = L.members.find(x => x.id === id); const h = hashStr(id || 'x') % 360;
   return `<span class="avatar${sm ? ' sm' : ''}" style="background:hsl(${h} 70% 90%);color:hsl(${h} 55% 30%)">${esc(firstChar(m?.name))}</span>`;
 }
-function openSheet(html, { onMount, tall } = {}) {
+let sheetTimer = null;
+// anchor：傳入觸發的按鈕時，面板會從按鈕下方往下展開（下拉選單）；否則從畫面底部滑上來
+function openSheet(html, { onMount, tall, anchor } = {}) {
   const root = $('#sheet-root');
-  root.innerHTML = `<div class="backdrop" data-act="sheet-close"></div><div class="sheet${tall ? ' tall' : ''}" role="dialog" aria-modal="true">${html}</div>`;
+  clearTimeout(sheetTimer); root.classList.remove('closing');
+  root.innerHTML = `<div class="backdrop" data-act="sheet-close"></div><div class="sheet${tall ? ' tall' : ''}${anchor ? ' drop' : ''}" role="dialog" aria-modal="true">${html}</div>`;
+  root.classList.toggle('is-drop', !!anchor);
+  if (anchor) root.style.setProperty('--drop-top', Math.round(anchor.getBoundingClientRect().bottom + 8) + 'px');
+  document.body.classList.toggle('drop-open', !!anchor);
   root.hidden = false; document.body.classList.add('locked');
   onMount?.($('.sheet', root));
 }
-function closeSheet() { const root = $('#sheet-root'); root.hidden = true; root.innerHTML = ''; if ($('#dialog-root').hidden) document.body.classList.remove('locked'); }
+const sheetOpen = () => { const r = $('#sheet-root'); return !r.hidden && !r.classList.contains('closing'); };
+function closeSheet() {
+  const root = $('#sheet-root'); if (root.hidden) return;
+  document.body.classList.remove('drop-open');
+  const done = () => { root.hidden = true; root.innerHTML = ''; root.classList.remove('closing', 'is-drop'); if ($('#dialog-root').hidden) document.body.classList.remove('locked'); };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return done();
+  root.classList.add('closing'); clearTimeout(sheetTimer); sheetTimer = setTimeout(done, 200);
+}
 let dialogCancel = null;
 function openDialog(html, onMount, onCancel) {
   const root = $('#dialog-root');
@@ -998,6 +1073,8 @@ function openExpense(id) {
     shares: Object.fromEntries(all.map(i => [i, ex?.mode === 'shares' ? (ex.shares[i] ?? '0') : (exIds.includes(i) ? '1' : '0')])),
     items: Object.fromEntries(all.map(i => [i, ex?.mode === 'itemized' && ex.items[i] ? centsToStr(ex.items[i]) : ''])),
     service: ex?.service || '', discount: ex?.discount ? centsToStr(ex.discount) : '',
+    shared: ex?.mode === 'itemized' ? ex.shared.map(x => ({ name: x.name, amountStr: centsToStr(x.amount), members: new Set(x.members.filter(i => all.includes(i))) })) : [],
+    splitIn: ex ? ex.splitIn : 'orig', // 新的外幣消費預設用原幣分攤
     note: ex?.note || '', amountTouched: !!ex, autoFilled: false
   };
   // 編輯既有的「各自點單」：總金額剛好等於計算值時，維持自動連動
@@ -1034,6 +1111,14 @@ function splitHTML(L, ed) {
   if (ed.mode === 'itemized') {
     return `<div class="split-tools"><span class="muted" style="font-size:13px;font-weight:600">輸入每人點餐金額（${C}），沒點的留空</span></div>` +
       L.members.map(m => `<div class="prow"><span class="pname">${esc(m.name)}</span><input class="input item-in" inputmode="decimal" data-item="${m.id}" value="${esc(ed.items[m.id])}" placeholder="0" aria-label="${esc(m.name)} 點餐金額" autocomplete="off"><span class="pamt" data-pv="${m.id}"></span></div>`).join('') +
+      `<div class="shared-box"><div class="shared-head"><b>🍽 大家一起分攤的品項</b><span>拼盤、酒水、外送費這類共享的東西，勾選誰要分</span></div>
+        ${ed.shared.map((x, i) => `<div class="shared-item">
+          <div class="shared-row"><input class="input sm" data-sh-name="${i}" maxlength="40" placeholder="品項（選填）" value="${esc(x.name)}" autocomplete="off" aria-label="共享品項名稱">
+            <input class="input sm item-in" inputmode="decimal" data-sh-amt="${i}" placeholder="金額" value="${esc(x.amountStr)}" autocomplete="off" aria-label="共享品項金額">
+            <button type="button" class="icon-btn danger" data-sh-del="${i}" aria-label="移除這個共享品項">✕</button></div>
+          <div class="chips sm">${L.members.map(m => `<button type="button" class="chip-btn${x.members.has(m.id) ? ' on' : ''}" data-sh-tog="${i}" data-id="${m.id}" aria-pressed="${x.members.has(m.id)}">${esc(m.name)}</button>`).join('')}</div>
+          <div class="shared-per" data-sh-per="${i}"></div></div>`).join('')}
+        <button type="button" class="btn sm block" data-sh-add>＋ 新增共享品項</button></div>` +
       `<div class="calc"><h3>🧮 服務費／折扣快速計算</h3>
         <div class="calc-grid">
           <label><span>服務費</span><div class="suffix"><input class="input" inputmode="decimal" id="f-service" value="${esc(ed.service)}" placeholder="0" autocomplete="off"><em>%</em></div></label>
@@ -1041,19 +1126,20 @@ function splitHTML(L, ed) {
         </div>
         <div class="calc-lines num" id="f-calc"></div>
         <div id="f-status"></div>
-        <p class="hint">服務費與折扣會依每人原始點餐金額的佔比分配；右側是換算成 ${L.mainCurrency} 後每人實際要付的金額。</p></div>`;
+        <p class="hint">共享品項先在勾選的人之間均分，服務費與折扣再依每人「點餐＋分到的共享品項」佔比分配；右側是每人最後要付的金額。</p></div>`;
   }
   return `<div class="split-tools"><button type="button" class="btn sm" data-all>全選</button><button type="button" class="btn sm" data-none>全不選</button><span class="sum" id="f-sum"></span></div>` +
     L.members.map(m => { const on = ed.participants.has(m.id); return `<button type="button" class="prow${on ? ' on' : ''}" data-toggle="${m.id}" aria-pressed="${on}"><span class="check"></span><span class="pname">${esc(m.name)}</span><span class="pamt" data-pv="${m.id}"></span></button>`; }).join('');
 }
 function edToExpense(L, ed) {
   const amount = parseCents(ed.amountStr);
-  const e = { id: ed.tmpId, title: ed.title.trim() || '未命名消費', amount: amount ?? 0, currency: ed.currency, payer: ed.payer, date: ed.date || today(), mode: ed.mode, participants: [], shares: {}, items: {}, service: '', discount: 0, note: ed.note.trim(), createdAt: 0, updatedAt: 0 };
+  const e = { id: ed.tmpId, title: ed.title.trim() || '未命名消費', amount: amount ?? 0, currency: ed.currency, payer: ed.payer, date: ed.date || today(), mode: ed.mode, participants: [], shares: {}, items: {}, service: '', discount: 0, shared: [], splitIn: ed.currency !== L.mainCurrency ? ed.splitIn : 'main', note: ed.note.trim(), createdAt: 0, updatedAt: 0 };
   const order = L.members.map(m => m.id);
   if (ed.mode === 'equal') e.participants = order.filter(id => ed.participants.has(id));
   else if (ed.mode === 'shares') { for (const id of order) { const v = parseScaled(ed.shares[id], 3); if (v && v > 0n) e.shares[id] = scaledToStr(v, 3); } }
   else {
     for (const id of order) { const c = parseCents(ed.items[id]); if (c && c > 0) e.items[id] = c; }
+    e.shared = ed.shared.map(x => ({ name: x.name.trim().slice(0, 40), amount: parseCents(x.amountStr) || 0, members: order.filter(id => x.members.has(id)) })).filter(x => x.amount > 0);
     const s = parseScaled(ed.service, 2); e.service = s && s > 0n ? scaledToStr(s, 2) : '';
     e.discount = parseCents(ed.discount) || 0;
   }
@@ -1069,6 +1155,8 @@ function mountExpense(el, L, ed, ex) {
     else if (t.id === 'f-amount') { ed.amountStr = t.value; ed.amountTouched = true; ed.autoFilled = false; update(); } // 手動輸入（含清空）後停止自動連動
     else if (t.dataset.share) { ed.shares[t.dataset.share] = t.value; update(); }
     else if (t.dataset.item) { ed.items[t.dataset.item] = t.value; update(); }
+    else if (t.dataset.shName) ed.shared[+t.dataset.shName].name = t.value;
+    else if (t.dataset.shAmt) { ed.shared[+t.dataset.shAmt].amountStr = t.value; update(); }
     else if (t.id === 'f-service') { ed.service = t.value; update(); }
     else if (t.id === 'f-discount') { ed.discount = t.value; update(); }
   });
@@ -1084,6 +1172,16 @@ function mountExpense(el, L, ed, ex) {
     const b = e.target.closest('button'); if (!b || !el.contains(b)) return;
     const d = b.dataset;
     if (d.payer) { ed.payer = d.payer; $$('[data-payer]', el).forEach(x => x.classList.toggle('on', x === b)); }
+    else if (d.splitin) { ed.splitIn = d.splitin; update(); }
+    else if ('shAdd' in d) {
+      ed.shared.push({ name: '', amountStr: '', members: new Set(L.members.map(m => m.id)) }); renderSplit();
+      const n = $$('[data-sh-amt]', el).at(-1); n?.scrollIntoView({ block: 'center', behavior: 'smooth' }); n?.focus();
+    }
+    else if (d.shDel) { ed.shared.splice(+d.shDel, 1); renderSplit(); }
+    else if (d.shTog) {
+      const x = ed.shared[+d.shTog], on = !x.members.has(d.id);
+      on ? x.members.add(d.id) : x.members.delete(d.id); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); update();
+    }
     else if (d.mode) {
       if (d.mode === ed.mode) return;
       ed.mode = d.mode; $$('[data-mode]', el).forEach(x => x.classList.toggle('on', x === b));
@@ -1118,36 +1216,53 @@ function updateExpensePreview(el, L, ed) {
   const r = computeExpense(L, e);
   const C = L.mainCurrency;
   const conv = $('#f-conv', el);
+  const orig = e.currency !== C && e.splitIn === 'orig';
+  const DC = orig ? e.currency : C;                       // 每人金額顯示的幣別
+  const disp = orig ? r.sharesOrig : r.shares;
+  const dispTotal = orig ? e.amount : r.main;
   if (e.currency !== C) {
     conv.hidden = false;
-    conv.innerHTML = r.main == null ? `<span class="warn-txt">⚠ 還沒設定 ${e.currency} 的匯率，請先到「成員與設定」填寫</span>`
-      : `≈ ${money(r.main, C)}　<span class="muted">1 ${e.currency} = ${esc(rateOf(L, e.currency))} ${C}</span>`;
+    conv.innerHTML = (r.main == null ? `<span class="warn-txt">⚠ 還沒設定 ${e.currency} 的匯率，請先到「成員與設定」填寫</span>`
+      : `≈ ${money(r.main, C)}　<span class="muted">1 ${e.currency} = ${esc(rateOf(L, e.currency))} ${C}</span>`) +
+      `<div class="splitin"><span>分攤計算幣別</span><div class="seg sm" role="group" aria-label="分攤計算幣別">
+        <button type="button" data-splitin="orig" class="${orig ? 'on' : ''}">${e.currency} ${esc(curName(e.currency))}</button>
+        <button type="button" data-splitin="main" class="${orig ? '' : 'on'}">${C} ${esc(curName(C))}</button></div></div>
+      <p class="hint" style="margin-top:6px">${orig ? `每人金額先用 ${e.currency} 算好${ZERO_DEC.has(e.currency) ? '（取整到 1 元）' : ''}，結算時再換算成 ${C}。` : `先把總額換算成 ${C}，再用 ${C} 分攤。`}</p>`;
   } else conv.hidden = true;
-  for (const m of L.members) { const sp = $(`[data-pv="${m.id}"]`, el); if (sp) { const v = r.shares?.[m.id]; sp.textContent = v != null ? money(v, C) : '—'; } }
+  for (const m of L.members) { const sp = $(`[data-pv="${m.id}"]`, el); if (sp) { const v = disp?.[m.id]; sp.textContent = v != null ? money(v, DC) : '—'; } }
+  if (ed.mode === 'itemized') ed.shared.forEach((x, i) => {
+    const per = $(`[data-sh-per="${i}"]`, el); if (!per) return;
+    const amt = parseCents(x.amountStr) || 0, n = x.members.size;
+    if (!n) { per.innerHTML = `<span class="warn-txt">⚠ 請至少勾選一位要分攤的人</span>`; return; }
+    if (!amt) { per.textContent = `${n} 人分攤`; return; }
+    const a = allocate(amt, [...x.members].map(id => [id, 1n])), vals = Object.values(a), mn = Math.min(...vals), mx = Math.max(...vals);
+    per.textContent = `${n} 人分攤 · 每人 ${mn === mx ? money(mn, e.currency) : money(mn, e.currency) + '～' + fmtAmt(mx, 'trim')}（未含服務費／折扣）`;
+  });
   const sum = $('#f-sum', el);
   if (sum) {
     if (ed.mode === 'equal') {
       const n = e.participants.length;
       if (!n) sum.textContent = '尚未選擇';
-      else if (r.shares) { const vals = Object.values(r.shares); const mn = Math.min(...vals), mx = Math.max(...vals); sum.textContent = `${n} 人 · 每人 ${mn === mx ? money(mn, C) : money(mn, C) + '～' + fmtAmt(mx, 'trim')}`; }
+      else if (disp) { const vals = Object.values(disp); const mn = Math.min(...vals), mx = Math.max(...vals); sum.textContent = `${n} 人 · 每人 ${mn === mx ? money(mn, DC) : money(mn, DC) + '～' + fmtAmt(mx, 'trim')}`; }
       else sum.textContent = `${n} 人`;
     } else {
       const tot = Object.values(e.shares).reduce((a, s) => a + (parseScaled(s, 3) || 0n), 0n);
-      sum.textContent = tot ? `共 ${scaledToStr(tot, 3)} 份${r.main ? ' · 每份約 ' + money(Number(divRound(BigInt(r.main) * 1000n, tot)), C) : ''}` : '尚未設定份數';
+      sum.textContent = tot ? `共 ${scaledToStr(tot, 3)} 份${dispTotal ? ' · 每份約 ' + money(Number(divRound(BigInt(dispTotal) * 1000n, tot)), DC) : ''}` : '尚未設定份數';
     }
   }
   if (ed.mode === 'itemized') {
     const ic = itemCalc(e), X = e.currency;
-    $('#f-calc', el).innerHTML = `<div><span>點餐小計</span><span>${money(ic.subtotal, X)}</span></div>
+    $('#f-calc', el).innerHTML = `${ic.sharedSum ? `<div><span>個人點餐</span><span>${money(ic.own, X)}</span></div><div><span>＋ 共享品項</span><span>${money(ic.sharedSum, X)}</span></div>` : ''}
+      <div><span>點餐小計</span><span>${money(ic.subtotal, X)}</span></div>
       ${ic.svc ? `<div><span>＋ 服務費 ${esc(e.service)}%</span><span>${money(ic.svc, X)}</span></div>` : ''}
       ${ic.disc ? `<div><span>－ 折扣／折抵</span><span>−${money(ic.disc, X)}</span></div>` : ''}
       <div class="tot"><span>計算應付</span><span>${money(ic.calc, X)}</span></div>
       <div><span>帳單總金額</span><span>${money(e.amount, X)}</span></div>`;
     const diff = e.amount - ic.calc;
     const st = $('#f-status', el);
-    if (!ic.subtotal) st.innerHTML = `<div class="status bad">請輸入至少一位成員的點餐金額</div>`;
+    if (!ic.subtotal) st.innerHTML = `<div class="status bad">請輸入點餐金額或共享品項</div>`;
     else if (diff === 0) st.innerHTML = `<div class="status ok">✓ 金額已全部分配完畢</div>`;
-    else st.innerHTML = `<div class="status bad">${diff > 0 ? `還有 ${money(diff, X)} 沒有對應到任何人的點餐` : `點餐加總比帳單多了 ${money(-diff, X)}`}，儲存時會依點餐比例${diff > 0 ? '分攤' : '扣回'}。
+    else st.innerHTML = `<div class="status bad">${diff > 0 ? `還有 ${money(diff, X)} 沒有對應到任何人的點餐或共享品項` : `點餐加總比帳單多了 ${money(-diff, X)}`}，儲存時會依點餐比例${diff > 0 ? '分攤' : '扣回'}。
       <button type="button" class="btn sm block" data-usecalc>改用計算應付 ${money(ic.calc, X)} 作為總金額</button></div>`;
   }
 }
@@ -1157,7 +1272,8 @@ function saveExpense(L, ed, el) {
   if (!L.members.some(m => m.id === e.payer)) { toast('請選擇誰先付錢'); return; }
   const r = computeExpense(L, e);
   if (r.main == null) { toast(`請先到設定填入 ${e.currency} 的匯率`); return; }
-  if (!r.shares) { toast(ed.mode === 'itemized' ? '請至少輸入一位成員的點餐金額' : ed.mode === 'shares' ? '請至少給一位成員 1 份以上' : '請至少選一位分攤成員'); return; }
+  if (ed.mode === 'itemized' && ed.shared.some(x => (parseCents(x.amountStr) || 0) > 0 && !x.members.size)) { toast('共享品項請至少勾選一位要分攤的人'); return; }
+  if (!r.shares) { toast(ed.mode === 'itemized' ? '請輸入點餐金額或共享品項' : ed.mode === 'shares' ? '請至少給一位成員 1 份以上' : '請至少選一位分攤成員'); return; }
   const old = ed.id ? L.expenses.find(x => x.id === ed.id) : null;
   e.createdAt = old?.createdAt || Date.now(); e.updatedAt = Date.now();
   mutate(L, L => { const i = L.expenses.findIndex(x => x.id === e.id); if (i >= 0) L.expenses[i] = e; else L.expenses.push(e); },
@@ -1373,7 +1489,7 @@ function sampleLedger() {
     E({ title: '燒肉晚餐', amount: 2860000, currency: 'JPY', payer: c, date: day(1), mode: 'shares', participants: [], shares: { [a]: '1', [b]: '1.5', [c]: '1', [d]: '1.5' }, note: '小華、大雄多點了啤酒' }),
     E({ title: 'Suica 交通卡儲值', amount: 1200000, currency: 'JPY', payer: a, date: day(1), participants: [a, b, c], note: '大雄自己有卡' }),
     E({ title: '樂園門票', amount: 43600, currency: 'USD', payer: c, date: day(2), note: '官網刷卡，用美金計價' }),
-    E({ title: '居酒屋', amount: 1496000, currency: 'JPY', payer: d, date: day(3), mode: 'itemized', participants: [], items: { [a]: 320000, [b]: 410000, [c]: 280000, [d]: 350000 }, service: '10', note: '含 10% 服務費' }),
+    E({ title: '居酒屋', amount: 1760000, currency: 'JPY', payer: d, date: day(3), mode: 'itemized', participants: [], items: { [a]: 320000, [b]: 410000, [c]: 280000, [d]: 350000 }, shared: [{ name: '炸雞＋毛豆拼盤', amount: 240000, members: all }], service: '10', splitIn: 'orig', note: '含 10% 服務費，拼盤大家分' }),
     E({ title: '回台灣後的外送宵夜', amount: 65000, payer: b, date: day(4), mode: 'itemized', participants: [], items: { [a]: 18000, [b]: 22000, [c]: 15000, [d]: 25000 }, discount: 15000, note: '外送平台折抵 150 元' })
   ];
   return normalizeLedger(L);
@@ -1442,11 +1558,12 @@ const tsMs = t => t == null ? null : (typeof t.toMillis === 'function' ? t.toMil
 function withExp(L, o) { if (L?.room?.expireAt) o.expireAt = new Date(L.room.expireAt); return o; }
 const memberDoc = (L, m) => withExp(L, { name: m.name, createdAt: m.createdAt || Date.now() });
 function expDoc(e, L) {
-  return withExp(L, { title: e.title, amount: e.amount, currency: e.currency, payer: e.payer, date: e.date, mode: e.mode, participants: e.participants || [], shares: e.shares || {}, items: e.items || {}, service: e.service || '', discount: e.discount || 0, note: e.note || '', createdAt: e.createdAt || Date.now(), updatedAt: Date.now() });
+  return withExp(L, { title: e.title, amount: e.amount, currency: e.currency, payer: e.payer, date: e.date, mode: e.mode, participants: e.participants || [], shares: e.shares || {}, items: e.items || {}, service: e.service || '', discount: e.discount || 0, note: e.note || '', createdAt: e.createdAt || Date.now(), updatedAt: Date.now(),
+    ...(e.mode === 'itemized' && e.shared?.length ? { shared: e.shared } : {}), ...(e.splitIn === 'orig' ? { splitIn: 'orig' } : {}) });
 }
 function remote(L, op) {
   if (!L.room || !FIREBASE_CONFIG) return;
-  getFirebase().then(f => op(f, f.doc(f.db, 'rooms', L.room.id))).catch(e => { console.error(e); toast('雲端同步失敗：' + (e.code || e.message)); });
+  getFirebase().then(f => op(f, f.doc(f.db, 'rooms', L.room.id))).catch(e => { console.error(e); toast(e.code === 'permission-denied' ? '雲端同步失敗：請到 Firebase 更新安全規則（見 README）' : '雲端同步失敗：' + (e.code || e.message)); });
 }
 function setSync(status, msg = '') { ui.sync = { status, msg }; renderHeader(cur()); }
 function disconnectRoom() { if (ui.conn) { ui.conn.unsubs.forEach(u => { try { u(); } catch (e) { } }); ui.conn = null; } ui.sync = { status: 'off', msg: '' }; }
@@ -1565,7 +1682,7 @@ async function joinRoom(id) {
   render(); connectRoom(L);
 }
 function openJoin(L) {
-  if (!$('#dialog-root').hidden || !$('#sheet-root').hidden) return;
+  if (!$('#dialog-root').hidden || sheetOpen()) return;
   openDialog(`<h3>加入「${esc(L.name)}」</h3><p>${L.members.length ? '你是哪一位？選擇你的名字，或輸入新名字加入。' : '輸入你的名字加入這個房間。'}</p>
     ${L.members.length ? `<div class="chips" style="margin-bottom:14px">${L.members.map(m => `<button type="button" class="chip-btn" data-join="${m.id}">${esc(m.name)}</button>`).join('')}</div>` : ''}
     <div class="addrow"><input class="input" id="join-name" placeholder="你的名字" maxlength="20" enterkeyhint="done" autocomplete="off"><button type="button" class="btn primary" data-joinnew>加入</button></div>
@@ -1596,15 +1713,15 @@ const ACT = {
   'go-members': () => goMembers(),
   'go-profile': () => { ui.tab = 'settings'; render(); setTimeout(() => $('[data-k="bankCode"]')?.scrollIntoView({ block: 'center' }), 60); },
   'sync-info': () => toast(ui.sync.msg || { live: '已連線，所有人的修改會即時同步', connecting: '正在連線到房間…' }[ui.sync.status] || '同步狀態'),
-  'ledgers': () => {
+  'ledgers': b => {
+    if (sheetOpen() && document.body.classList.contains('drop-open')) return closeSheet(); // 再按一次標題就收合
     const L = cur();
-    openSheet(`<div class="sheet-head"><span style="width:44px"></span><b>我的帳本</b><button type="button" class="link-btn" data-act="sheet-close">完成</button></div>
-      <div class="sheet-body">${store.order.map(id => {
+    openSheet(`<div class="sheet-body"><div class="drop-title">我的帳本</div>${store.order.map(id => {
         const l = store.ledgers[id], st = computeLedger(l);
         return `<button type="button" class="lrow${l === L ? ' on' : ''}" data-act="switch" data-id="${id}"><div><b>${esc(l.name)}</b><small>${l.members.length} 人 · ${l.expenses.length} 筆 · ${money(st.total, l.mainCurrency, l.rounding)}</small></div>${l.room ? '<span class="tag">☁ 房間</span>' : ''}</button>`;
       }).join('') || '<p class="muted" style="text-align:center">還沒有帳本</p>'}
       ${ui.shared ? `<p class="hint">目前正在檢視分享的帳本，切換後會關閉檢視。</p>` : ''}</div>
-      <div class="sheet-foot"><div class="btn-grid" style="margin:0"><button type="button" class="btn primary" data-act="new-ledger">＋ 新帳本</button><button type="button" class="btn" data-act="sample">載入範例</button></div>${FIREBASE_CONFIG ? '<div class="btn-col" style="margin-top:8px"><button type="button" class="btn" data-act="join-room">🔗 加入房間（貼上邀請連結）</button></div>' : ''}</div>`);
+      <div class="sheet-foot"><div class="btn-grid" style="margin:0"><button type="button" class="btn primary" data-act="new-ledger">＋ 新帳本</button><button type="button" class="btn" data-act="sample">載入範例</button></div>${FIREBASE_CONFIG ? '<div class="btn-col" style="margin-top:8px"><button type="button" class="btn" data-act="join-room">🔗 加入房間（貼上邀請連結）</button></div>' : ''}</div>`, { anchor: b });
   },
   'switch': b => { closeSheet(); ui.tab = 'expenses'; switchLedger(b.dataset.id); },
   'new-ledger': async () => {
@@ -1739,7 +1856,7 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => { const t = e.target.closest('[data-chg]'); if (t) CHG[t.dataset.chg]?.(t, e); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && e.target.id === 'add-member-input') { e.preventDefault(); ACT['add-member'](); }
-  if (e.key === 'Escape') { if (!$('#dialog-root').hidden) ACT['dialog-cancel'](); else if (!$('#sheet-root').hidden) closeSheet(); }
+  if (e.key === 'Escape') { if (!$('#dialog-root').hidden) ACT['dialog-cancel'](); else if (sheetOpen()) closeSheet(); }
 });
 window.addEventListener('storage', e => { if (e.key === STORE_KEY && !ui.conn) { store = loadStore(); scheduleRender(); } }); // 多分頁同步
 
@@ -1762,7 +1879,7 @@ window.addEventListener('hashchange', async () => { await handleHash(); render()
 })();
 
 // 測試用掛勾（不影響正常使用）
-window.__splitbill = { receiptCanvas, settleState, migrateSettled, allocate, minTransfers, roundLR, computeLedger, settleView, encodeShare, decodeShare, sampleLedger, parseScaled, itemCalc, get store() { return store; } };
+window.__splitbill = { computeExpense, receiptCanvas, settleState, migrateSettled, allocate, minTransfers, roundLR, computeLedger, settleView, encodeShare, decodeShare, sampleLedger, parseScaled, itemCalc, get store() { return store; } };
 </script>
 </body>
 </html>
