@@ -203,6 +203,9 @@ button.prow:not(.on) .pamt{opacity:.45}
 .tr.done .tr-amt{text-decoration:line-through}
 .tr.mine{border-color:var(--accent)}
 .done-tag{display:block;font-size:12px;color:var(--pos);font-weight:700}
+.chg-tag{display:block;font-size:12px;color:var(--warn);font-weight:700;line-height:1.4;margin-top:2px}
+.tr.changed{border-color:var(--warn);background:var(--warn-soft)}
+.tr.changed .check{border-color:var(--warn)}
 .allclear{text-align:center;padding:18px;font-weight:700;color:var(--muted)}
 .receipt-img{display:block;width:100%;max-width:420px;margin:12px auto 0;border-radius:12px;-webkit-touch-callout:default;user-select:auto}
 .img-hint{text-align:center;font-size:13px;color:var(--muted);font-weight:600;margin:8px 0 0}
@@ -412,6 +415,13 @@ function normalizeExpense(e) {
     note: String(e.note || '').slice(0, 200), createdAt: +e.createdAt || 0, updatedAt: +e.updatedAt || 0
   };
 }
+// 結清紀錄：{ "from_to": 當時結清的金額（最小單位） }；相容舊格式 { "from_to_amount": true }
+function migrateSettled(o) {
+  const out = {}, src = o && typeof o === 'object' ? Object.entries(o) : [];
+  for (const [k, v] of src) { const p = k.split('_'); if (p.length === 3 && v) out[`${p[0]}_${p[1]}`] = Math.round(+p[2]) || 0; }
+  for (const [k, v] of src) { const p = k.split('_'); if (p.length === 2 && Number.isFinite(+v) && typeof v !== 'boolean') out[k] = Math.round(+v); }
+  return out;
+}
 function normalizeLedger(l) {
   const L = { ...newLedger(''), ...l };
   L.id = String(L.id || uid());
@@ -424,7 +434,7 @@ function normalizeLedger(l) {
     .map((m, i) => ({ id: String(m.id), name: String(m.name || '成員').slice(0, 30), createdAt: +m.createdAt || i }));
   L.expenses = (Array.isArray(L.expenses) ? L.expenses : []).filter(e => e && e.id).map(normalizeExpense);
   L.rounding = L.rounding === 'decimal' ? 'decimal' : 'integer';
-  L.settled = L.settled && typeof L.settled === 'object' ? L.settled : {};
+  L.settled = migrateSettled(L.settled);
   L.room = L.room && L.room.id ? { id: String(L.room.id), expireAt: +L.room.expireAt || null } : null;
   L.me = L.me ? String(L.me) : null;
   return L;
@@ -568,10 +578,22 @@ function settleView(L, stats, mode = L.rounding) {
   const order = new Map(ids.map((id, i) => [id, i]));
   const transfers = minTransfers(ids.map(id => [id, net[id]]))
     .sort((a, b) => order.get(a.from) - order.get(b.from) || order.get(a.to) - order.get(b.to))
-    .map(t => ({ ...t, key: `${t.from}_${t.to}_${t.amount}` }));
+    .map(t => ({ ...t, key: `${t.from}_${t.to}` }));
   return { mode, total, paid, owed, net, transfers, tail };
 }
 const memberName = (L, id) => L.members.find(m => m.id === id)?.name ?? '（已移除）';
+// 差距不到 1 元（例如整數／小數切換、四捨五入尾差）視為同一筆，仍算已結清
+function settleState(L, t) {
+  const paid = L.settled[t.key];
+  if (paid == null) return { state: null };
+  return { state: Math.abs(paid - t.amount) < 100 ? 'done' : 'changed', paid };
+}
+// 結清過、但已不在目前轉帳建議中的紀錄
+function staleSettled(L, v) {
+  const keys = new Set(v.transfers.map(t => t.key)), ids = new Set(L.members.map(m => m.id));
+  return Object.entries(L.settled).map(([k, a]) => { const [from, to] = k.split('_'); return { key: k, from, to, amount: a }; })
+    .filter(x => !keys.has(x.key) && ids.has(x.from) && ids.has(x.to));
+}
 
 /* ---------------- 分享連結編碼（壓縮進網址） ---------------- */
 function b64urlEncode(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
@@ -588,7 +610,7 @@ function packLedger(L) {
     if (x.note) row.push(x.note);
     return row;
   });
-  const s = Object.keys(L.settled).map(k => { const [f, t, a] = k.split('_'); return idx.has(f) && idx.has(t) ? [idx.get(f), idx.get(t), +a] : null; }).filter(Boolean);
+  const s = Object.entries(L.settled).map(([k, a]) => { const [f, t] = k.split('_'); return idx.has(f) && idx.has(t) ? [idx.get(f), idx.get(t), +a] : null; }).filter(Boolean);
   return { v: 1, n: L.name, c: L.mainCurrency, x: L.currencies.map(c => [c.code, c.rate]), r: L.rounding === 'decimal' ? 1 : 0, m: L.members.map(m => m.name), e, s };
 }
 function unpackLedger(p) {
@@ -606,7 +628,7 @@ function unpackLedger(p) {
     else e.participants = d.map(id).filter(Boolean);
     return e;
   });
-  for (const [f, t, a] of p.s || []) if (id(f) && id(t)) L.settled[`${id(f)}_${id(t)}_${a}`] = true;
+  for (const [f, t, a] of p.s || []) if (id(f) && id(t)) L.settled[`${id(f)}_${id(t)}`] = +a || 0;
   return normalizeLedger(L);
 }
 async function encodeShare(L) {
@@ -751,6 +773,7 @@ function welcomeHTML() {
     </ul>
     <button type="button" class="btn primary block lg" data-act="sample">載入範例帳本，先玩玩看</button>
     <button type="button" class="btn dark block" data-act="new-ledger">建立新帳本</button>
+    ${FIREBASE_CONFIG ? '<button type="button" class="btn block" data-act="join-room">🔗 加入朋友的房間</button>' : ''}
     <button type="button" class="btn ghost block" data-act="import">匯入備份檔</button>
   </section>`;
 }
@@ -823,14 +846,18 @@ function settleHTML(L, stats) {
   }
   h += `<p class="hint">總花費 ${money(v.total, C, M)}${M === 'integer' ? (v.tail ? '・已四捨五入到整數，1 元尾差已自動分配，收支總和剛好為 0' : '・已四捨五入到整數') : '・保留到小數點後兩位'}</p></section>`;
 
-  const done = v.transfers.filter(t => L.settled[t.key]).length;
+  const done = v.transfers.filter(t => settleState(L, t).state === 'done').length;
   h += `<section class="card"><div class="sec-head"><h2>轉帳建議</h2>${v.transfers.length ? `<span class="muted num" style="font-size:13px;font-weight:700">已結清 ${done}/${v.transfers.length}</span>` : ''}</div>`;
   if (!v.transfers.length) h += `<div class="allclear">${L.expenses.length ? '🎉 大家已經互不相欠' : '記下第一筆消費後，這裡會出現轉帳建議'}</div>`;
   for (const t of v.transfers) {
-    const isDone = !!L.settled[t.key];
-    h += `<button type="button" class="tr${isDone ? ' done' : ''}${me && (t.from === me || t.to === me) ? ' mine' : ''}" data-act="settle-toggle" data-key="${t.key}" role="checkbox" aria-checked="${isDone}" ${readonly() ? 'disabled' : ''}>
-      <span class="check"></span><span class="tr-who">${esc(memberName(L, t.from))}<span>→</span>${esc(memberName(L, t.to))}${isDone ? '<span class="done-tag">已結清</span>' : ''}</span><span class="tr-amt">${money(t.amount, C, M)}</span></button>`;
+    const st = settleState(L, t), isDone = st.state === 'done', changed = st.state === 'changed';
+    const tag = isDone ? '<span class="done-tag">已結清</span>'
+      : changed ? `<span class="chg-tag">⚠ 先前已結清 ${money(st.paid, C, M)}，金額已變動（${t.amount > st.paid ? '還差 ' + money(t.amount - st.paid, C, M) : '多付了 ' + money(st.paid - t.amount, C, M)}）${readonly() ? '' : '・點一下改為已結清'}</span>` : '';
+    h += `<button type="button" class="tr${isDone ? ' done' : ''}${changed ? ' changed' : ''}${me && (t.from === me || t.to === me) ? ' mine' : ''}" data-act="settle-toggle" data-key="${t.key}" data-amt="${t.amount}" role="checkbox" aria-checked="${isDone}" ${readonly() ? 'disabled' : ''}>
+      <span class="check"></span><span class="tr-who">${esc(memberName(L, t.from))}<span>→</span>${esc(memberName(L, t.to))}${tag}</span><span class="tr-amt">${money(t.amount, C, M)}</span></button>`;
   }
+  const stale = staleSettled(L, v);
+  if (stale.length) h += `<p class="hint">📌 先前的結清紀錄（轉帳建議已改變）：${stale.map(x => `${esc(memberName(L, x.from))} → ${esc(memberName(L, x.to))} ${money(x.amount, C, M)}`).join('、')}${readonly() ? '' : `　<a href="#" data-act="settle-clear-stale" style="color:var(--accent);font-weight:700">清除</a>`}</p>`;
   if (v.transfers.length) h += `<p class="hint">交叉墊付已互相抵銷，這是轉帳次數最少的方案。轉完帳點一下即可標記「已結清」。</p>`;
   h += `</section>`;
 
@@ -971,9 +998,10 @@ function openExpense(id) {
     shares: Object.fromEntries(all.map(i => [i, ex?.mode === 'shares' ? (ex.shares[i] ?? '0') : (exIds.includes(i) ? '1' : '0')])),
     items: Object.fromEntries(all.map(i => [i, ex?.mode === 'itemized' && ex.items[i] ? centsToStr(ex.items[i]) : ''])),
     service: ex?.service || '', discount: ex?.discount ? centsToStr(ex.discount) : '',
-    note: ex?.note || '', amountTouched: !!ex
+    note: ex?.note || '', amountTouched: !!ex, autoFilled: false
   };
-  if (ex?.mode === 'itemized') ed.amountTouched = ex.amount !== itemCalc(ex).calc;
+  // 編輯既有的「各自點單」：總金額剛好等於計算值時，維持自動連動
+  if (ex?.mode === 'itemized') { ed.amountTouched = ex.amount !== itemCalc(ex).calc; ed.autoFilled = !ed.amountTouched; }
   const curs = [L.mainCurrency, ...L.currencies.map(c => c.code)];
   if (!curs.includes(ed.currency)) curs.push(ed.currency);
   openSheet(`
@@ -1038,7 +1066,7 @@ function mountExpense(el, L, ed, ex) {
     const t = e.target;
     if (t.id === 'f-title') ed.title = t.value;
     else if (t.id === 'f-note') ed.note = t.value;
-    else if (t.id === 'f-amount') { ed.amountStr = t.value; ed.amountTouched = t.value.trim() !== ''; update(); }
+    else if (t.id === 'f-amount') { ed.amountStr = t.value; ed.amountTouched = true; ed.autoFilled = false; update(); } // 手動輸入（含清空）後停止自動連動
     else if (t.dataset.share) { ed.shares[t.dataset.share] = t.value; update(); }
     else if (t.dataset.item) { ed.items[t.dataset.item] = t.value; update(); }
     else if (t.id === 'f-service') { ed.service = t.value; update(); }
@@ -1059,7 +1087,7 @@ function mountExpense(el, L, ed, ex) {
     else if (d.mode) {
       if (d.mode === ed.mode) return;
       ed.mode = d.mode; $$('[data-mode]', el).forEach(x => x.classList.toggle('on', x === b));
-      if (ed.mode === 'itemized') ed.amountTouched = ed.amountStr.trim() !== '';
+      if (ed.mode === 'itemized') { ed.amountTouched = false; ed.autoFilled = false; } // 切換模式時重新啟用自動計算
       renderSplit();
     }
     else if (d.toggle) { const on = !ed.participants.has(d.toggle); on ? ed.participants.add(d.toggle) : ed.participants.delete(d.toggle); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); update(); }
@@ -1072,7 +1100,7 @@ function mountExpense(el, L, ed, ex) {
       if (d.step === '-' && v % 500n) nv = v - v % 500n;           // 1.2 → 1
       ed.shares[d.id] = scaledToStr(nv, 3); $(`[data-share="${d.id}"]`, el).value = ed.shares[d.id]; update();
     }
-    else if ('usecalc' in d) { ed.amountTouched = false; update(); }
+    else if ('usecalc' in d) { ed.amountTouched = false; ed.autoFilled = false; update(); }
     else if ('save' in d) saveExpense(L, ed, el);
     else if ('del' in d) deleteExpenseFlow(L, ex);
   });
@@ -1081,8 +1109,10 @@ function mountExpense(el, L, ed, ex) {
 function updateExpensePreview(el, L, ed) {
   if (ed.mode === 'itemized' && !ed.amountTouched) {
     const ic = itemCalc(edToExpense(L, ed).e);
-    ed.amountStr = ic.subtotal > 0 ? centsToStr(ic.calc) : '';
-    const a = $('#f-amount', el); if (a) a.value = ed.amountStr;
+    let next = null;
+    if (ic.subtotal > 0) { next = centsToStr(ic.calc); ed.autoFilled = true; }
+    else if (ed.autoFilled) { next = ''; ed.autoFilled = false; } // 點餐全部清空時，只收回先前自動帶入的金額
+    if (next !== null && next !== ed.amountStr) { ed.amountStr = next; const a = $('#f-amount', el); if (a) a.value = next; }
   }
   const { e } = edToExpense(L, ed);
   const r = computeExpense(L, e);
@@ -1201,7 +1231,7 @@ function buildReport(L, stats, v) {
   }
   lines.push('', '【轉帳清單】');
   if (!v.transfers.length) lines.push('🎉 大家已經互不相欠');
-  v.transfers.forEach((t, i) => lines.push(`${i + 1}. ${memberName(L, t.from)} ➜ ${memberName(L, t.to)}　${f(t.amount)}${L.settled[t.key] ? '（已結清）' : ''}`));
+  v.transfers.forEach((t, i) => { const st = settleState(L, t); lines.push(`${i + 1}. ${memberName(L, t.from)} ➜ ${memberName(L, t.to)}　${f(t.amount)}${st.state === 'done' ? '（已結清）' : st.state === 'changed' ? `（先前已結清 ${f(st.paid)}，金額有變動）` : ''}`); });
   const p = store.profile;
   if (p.attach && (p.bankAccount || '').trim()) {
     lines.push('', '【收款資訊】');
@@ -1216,7 +1246,8 @@ function buildReport(L, stats, v) {
 
 /* ---------------- 收據風格結算圖片（Canvas 直接繪製，不需外部套件） ---------------- */
 function receiptCanvas(L, v) {
-  const W = 420, S = 3, M = 18, P = 26, X0 = M + P, X1 = W - M - P, IW = X1 - X0;
+  const W = 420, M = 18, P = 26, X0 = M + P, X1 = W - M - P, IW = X1 - X0;
+  const MAX_PIXELS = 12000000; // iOS Safari／LINE 內建瀏覽器的畫布面積上限約 16.7M，保留安全空間
   const FF = '-apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif';
   const F = (w, s) => `${w} ${s}px ${FF}`;
   const INK = '#0b1220', MUTED = '#6b7280', LINE = '#d5d9e0', POS = '#047a4c', NEG = '#c23b0b', ACC = '#3b2fd9';
@@ -1273,17 +1304,20 @@ function receiptCanvas(L, v) {
     if (!v.transfers.length) { y += 30; txt('🎉 大家已經互不相欠', W / 2, y, F(700, 14), MUTED, 'center'); y += 6; }
     for (const t of v.transfers) {
       y += 32;
-      const done = !!L.settled[t.key];
+      const st = settleState(L, t), done = st.state === 'done', changed = st.state === 'changed';
       const amt = money(t.amount, C, MD);
+      const chgTxt = changed ? `曾結清 ${money(st.paid, C, MD)}` : '';
       ctx.font = F(800, 16); const aw = ctx.measureText(amt).width;
+      ctx.font = F(700, 11); const cw = changed ? ctx.measureText(chgTxt).width + 14 : 0;
       ctx.font = F(700, 14.5);
-      const who = fit(ctx, `${memberName(L, t.from)}  →  ${memberName(L, t.to)}`, IW - aw - (done ? 70 : 16));
+      const who = fit(ctx, `${memberName(L, t.from)}  →  ${memberName(L, t.to)}`, IW - aw - (done ? 70 : changed ? cw + 8 : 16));
       txt(who, X0, y, F(700, 14.5), done ? MUTED : INK);
       txt(amt, X1, y, F(800, 16), done ? MUTED : INK, 'right');
       if (done) {
         if (real) { ctx.strokeStyle = MUTED; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(X1 - aw, y - 5); ctx.lineTo(X1, y - 5); ctx.stroke(); }
         txt('✓ 已結清', X1 - aw - 10, y - 1, F(700, 11), POS, 'right');
       }
+      if (changed) txt(chgTxt, X1 - aw - 10, y - 1, F(700, 11), '#8a5300', 'right');
     }
     y += 22;
 
@@ -1305,7 +1339,8 @@ function receiptCanvas(L, v) {
     return y + P + 10;
   }
   const H = Math.ceil(paint(document.createElement('canvas').getContext('2d'), 0));
-  const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
+  const S = Math.min(3, Math.floor(Math.sqrt(MAX_PIXELS / (W * H)) * 100) / 100); // 一般收據維持 3 倍清晰度，超長時自動降低
+  const cv = document.createElement('canvas'); cv.width = Math.floor(W * S); cv.height = Math.floor(H * S);
   const ctx = cv.getContext('2d'); ctx.scale(S, S); paint(ctx, H);
   return cv;
 }
@@ -1451,7 +1486,7 @@ async function connectRoom(L) {
     L.room.expireAt = tsMs(d.expireAt);
     L.name = String(d.name || '未命名帳本'); L.mainCurrency = d.mainCurrency || 'TWD';
     L.currencies = Array.isArray(d.currencies) ? d.currencies.map(c => ({ code: c.code, rate: String(c.rate ?? '') })) : [];
-    L.rounding = d.rounding === 'decimal' ? 'decimal' : 'integer'; L.settled = d.settled || {};
+    L.rounding = d.rounding === 'decimal' ? 'decimal' : 'integer'; L.settled = migrateSettled(d.settled);
     conn.loaded.room = true; setSync(snap.metadata.fromCache ? 'offline' : 'live', snap.metadata.fromCache ? '目前離線，修改會在恢復連線後同步' : '');
     apply();
   }, onErr));
@@ -1569,7 +1604,7 @@ const ACT = {
         return `<button type="button" class="lrow${l === L ? ' on' : ''}" data-act="switch" data-id="${id}"><div><b>${esc(l.name)}</b><small>${l.members.length} 人 · ${l.expenses.length} 筆 · ${money(st.total, l.mainCurrency, l.rounding)}</small></div>${l.room ? '<span class="tag">☁ 房間</span>' : ''}</button>`;
       }).join('') || '<p class="muted" style="text-align:center">還沒有帳本</p>'}
       ${ui.shared ? `<p class="hint">目前正在檢視分享的帳本，切換後會關閉檢視。</p>` : ''}</div>
-      <div class="sheet-foot"><div class="btn-grid" style="margin:0"><button type="button" class="btn primary" data-act="new-ledger">＋ 新帳本</button><button type="button" class="btn" data-act="sample">載入範例</button></div></div>`);
+      <div class="sheet-foot"><div class="btn-grid" style="margin:0"><button type="button" class="btn primary" data-act="new-ledger">＋ 新帳本</button><button type="button" class="btn" data-act="sample">載入範例</button></div>${FIREBASE_CONFIG ? '<div class="btn-col" style="margin-top:8px"><button type="button" class="btn" data-act="join-room">🔗 加入房間（貼上邀請連結）</button></div>' : ''}</div>`);
   },
   'switch': b => { closeSheet(); ui.tab = 'expenses'; switchLedger(b.dataset.id); },
   'new-ledger': async () => {
@@ -1582,6 +1617,16 @@ const ACT = {
   },
   'sample': () => { closeSheet(); ui.shared = null; clearHash(); const L = sampleLedger(); addLedger(L); disconnectRoom(); ui.tab = 'expenses'; render(); window.scrollTo(0, 0); toast('已載入範例帳本，到「結算與分享」看看結果'); },
   'import': () => importBackup(),
+  'join-room': async () => {
+    closeSheet();
+    const v = await askText({ title: '加入房間', msg: '貼上朋友傳來的房間邀請連結，或直接輸入房間 ID。', placeholder: '貼上邀請連結或房間 ID', ok: '加入', maxlength: 20000 });
+    if (!v) return;
+    const m = v.match(/[#&?]room=([a-z0-9]{12,40})/i) || v.trim().match(/^([a-z0-9]{12,40})$/i);
+    if (m) return joinRoom(m[1]);
+    const d = v.match(/#d=([A-Za-z0-9_-]+)/); // 貼到的是「分享帳本連結」也能直接開啟
+    if (d) { location.hash = 'd=' + d[1]; return; }
+    toast('看不懂這個連結，請確認是房間邀請連結或房間 ID');
+  },
   'export': () => exportBackup(),
   'del-ledger': async () => {
     const L = cur(); if (!L || readonly()) return;
@@ -1595,10 +1640,19 @@ const ACT = {
     mutate(L, L => { L.rounding = mode; }, metaOp(L));
   },
   'settle-toggle': b => {
-    const L = cur(), key = b.dataset.key, on = !L.settled[key];
-    mutate(L, L => { if (on) L.settled[key] = true; else delete L.settled[key]; },
-      (f, ref) => f.updateDoc(ref, { [`settled.${key}`]: on ? true : f.deleteField(), updatedAt: Date.now() }));
-    if (on) toast('已標記為結清 ✓');
+    const L = cur(), key = b.dataset.key, amt = +b.dataset.amt;
+    const prev = L.settled[key], done = prev != null && Math.abs(prev - amt) < 100;
+    const val = done ? null : amt; // 已結清 → 取消；未結清或金額已變動 → 以目前金額標記結清
+    mutate(L, L => { if (val == null) delete L.settled[key]; else L.settled[key] = val; },
+      (f, ref) => f.updateDoc(ref, { [`settled.${key}`]: val == null ? f.deleteField() : val, updatedAt: Date.now() }));
+    if (val != null) toast(prev != null ? '已更新為目前金額並標記結清 ✓' : '已標記為結清 ✓');
+  },
+  'settle-clear-stale': () => {
+    const L = cur(); if (readonly()) return;
+    const stale = staleSettled(L, settleView(L, computeLedger(L))); if (!stale.length) return;
+    mutate(L, L => { stale.forEach(x => delete L.settled[x.key]); },
+      (f, ref) => f.updateDoc(ref, Object.assign({ updatedAt: Date.now() }, ...stale.map(x => ({ [`settled.${x.key}`]: f.deleteField() })))));
+    toast('已清除舊的結清紀錄');
   },
   'copy-report': () => { const L = cur(), st = computeLedger(L); copyText(buildReport(L, st, settleView(L, st)), '已複製，貼到 LINE 就好'); },
   'line-report': () => { const L = cur(), st = computeLedger(L); openLine(buildReport(L, st, settleView(L, st))); },
@@ -1708,7 +1762,7 @@ window.addEventListener('hashchange', async () => { await handleHash(); render()
 })();
 
 // 測試用掛勾（不影響正常使用）
-window.__splitbill = { allocate, minTransfers, roundLR, computeLedger, settleView, encodeShare, decodeShare, sampleLedger, parseScaled, itemCalc, get store() { return store; } };
+window.__splitbill = { receiptCanvas, settleState, migrateSettled, allocate, minTransfers, roundLR, computeLedger, settleView, encodeShare, decodeShare, sampleLedger, parseScaled, itemCalc, get store() { return store; } };
 </script>
 </body>
 </html>
