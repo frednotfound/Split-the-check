@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#f2f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1016" media="(prefers-color-scheme: dark)">
+<meta name="description" content="免註冊、免伺服器的多人旅遊與聚餐分帳工具">
+<title>分帳小幫手</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%BE%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f2f3f6; --card:#ffffff; --ink:#0b1220; --muted:#5b6475; --line:#e2e5eb; --line2:#cfd4dc;
+  --accent:#3b2fd9; --accent-ink:#ffffff; --accent-soft:#edebff;
+  --pos:#047a4c; --pos-soft:#e3f6ec; --neg:#c23b0b; --neg-soft:#fdece4;
+  --warn:#8a5300; --warn-soft:#fff4dc; --line-green:#06c755;
+  --radius:18px;
+  --font:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei","Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0d1016; --card:#171b23; --ink:#eef1f6; --muted:#9aa3b2; --line:#2a303b; --line2:#3a4150;
+    --accent:#8f87ff; --accent-ink:#0d1016; --accent-soft:#24224a;
+    --pos:#3ddc97; --pos-soft:#11301f; --neg:#ff8a5c; --neg-soft:#3a1d12;
+    --warn:#ffc56b; --warn-soft:#3a2c10;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font);
+  padding-bottom:calc(150px + env(safe-area-inset-bottom));min-height:100vh}
+body.locked{overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{font-size:16px} /* 16px 以上，iOS 點擊輸入框才不會自動放大 */
+button{cursor:pointer;touch-action:manipulation}
+button:disabled{cursor:not-allowed;opacity:.5}
+h1,h2,h3{margin:0;line-height:1.3}
+h2{font-size:17px;font-weight:800}
+h2 small{font-size:13px;color:var(--muted);font-weight:600;margin-left:6px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+.wrap{max-width:560px;margin:0 auto;padding:6px 14px 24px}
+[hidden]{display:none!important}
+
+/* header */
+#top{position:sticky;top:0;z-index:30;background:var(--bg);padding-top:env(safe-area-inset-top)}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+  #top{background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px)}
+}
+.hdr{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 14px}
+.ledger-btn{display:flex;align-items:center;gap:6px;min-width:0;max-width:calc(100% - 120px);height:42px;padding:0 12px 0 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--card);font-weight:800;font-size:16px}
+.ledger-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ledger-btn svg{flex:none}
+.brand{font-size:18px;font-weight:800}
+.sync{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:999px;font-size:12px;font-weight:700;border:0;background:var(--line);color:var(--muted);white-space:nowrap}
+.sync i{width:8px;height:8px;border-radius:50%;background:currentColor;display:block}
+.sync.live{background:var(--pos-soft);color:var(--pos)}
+.sync.connecting,.sync.offline{background:var(--warn-soft);color:var(--warn)}
+.sync.error,.sync.missing{background:var(--neg-soft);color:var(--neg)}
+.banner{max-width:560px;margin:0 auto 4px;padding:0 14px}
+.banner>div{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px;border-radius:14px;background:var(--accent-soft);font-size:14px;font-weight:600}
+.banner p{margin:0;flex:1 1 180px}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0}
+.sec-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.hero{background:var(--ink);color:var(--bg);border:0;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.hero small{display:block;font-size:13px;opacity:.7;font-weight:600}
+.hero b{display:block;font-size:30px;font-weight:800;line-height:1.15;letter-spacing:-.5px}
+.hero span{font-size:13px;opacity:.7}
+.hero-r{text-align:right}
+.hero-r b{font-size:20px}
+.hero .pos{color:#5ff0aa} .hero .neg{color:#ffad8a}
+@media (prefers-color-scheme: dark){ .hero .pos{color:#047a4c} .hero .neg{color:#c23b0b} }
+.warnbox{background:var(--warn-soft);color:var(--warn);border:0;font-size:14px;font-weight:600}
+.warnbox ul{margin:6px 0 0;padding-left:20px;font-weight:500}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:0 16px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);font-weight:700;font-size:15px;text-decoration:none;color:var(--ink)}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.dark{background:var(--ink);color:var(--card);border-color:transparent}
+.btn.line{background:var(--line-green);color:#fff;border-color:transparent}
+.btn.danger{color:var(--neg)}
+.btn.danger-fill{background:var(--neg);color:#fff;border-color:transparent}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--accent)}
+.btn.block{display:flex;width:100%}
+.btn.lg{min-height:54px;font-size:17px;border-radius:15px}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px;border-radius:10px}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.btn-col{display:grid;gap:8px;margin-top:10px}
+.link-btn{border:0;background:none;color:var(--accent);font-weight:700;font-size:16px;padding:8px 4px;min-width:44px}
+.icon-btn{flex:none;width:40px;height:40px;border-radius:11px;border:1.5px solid var(--line);background:var(--card);font-weight:800;font-size:14px;display:grid;place-items:center;color:var(--muted)}
+.icon-btn.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.icon-btn.danger{color:var(--neg)}
+
+/* fab + tabs */
+#fab{position:fixed;z-index:25;right:max(16px,calc(50% - 264px));bottom:calc(80px + env(safe-area-inset-bottom));height:58px;padding:0 24px 0 20px;border-radius:29px;border:0;background:var(--accent);color:var(--accent-ink);font-size:17px;font-weight:800;display:flex;align-items:center;gap:6px;box-shadow:0 10px 24px -6px rgba(59,47,217,.55),0 2px 6px rgba(0,0,0,.12)}
+#fab svg{width:22px;height:22px}
+#fab:active{transform:scale(.96)}
+#tabs{position:fixed;z-index:24;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+#tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+#tabs button{height:64px;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:700;color:var(--muted)}
+#tabs button svg{width:24px;height:24px}
+#tabs button.on{color:var(--accent)}
+
+/* forms */
+.field{display:block;margin:0 0 14px}
+.field>span{display:block;font-size:13px;color:var(--muted);font-weight:700;margin-bottom:6px}
+.input{width:100%;height:48px;border:1.5px solid var(--line);border-radius:12px;padding:0 14px;background:var(--card);outline:none;-webkit-appearance:none;appearance:none}
+select.input{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+input[type=date].input{display:flex;align-items:center;min-width:0}
+.input:focus{border-color:var(--accent)}
+.input.big{font-size:26px;font-weight:800;height:56px;font-variant-numeric:tabular-nums}
+.input.sm{height:42px}
+.input:disabled{opacity:.6}
+.amt-row{display:flex;gap:10px}
+.amt-row .grow{flex:1;min-width:0}
+.amt-row .cur{width:110px;flex:none}
+.amt-row .cur .input{height:56px;font-weight:800}
+.conv{margin:-6px 0 14px;font-size:14px;font-weight:600}
+.warn-txt{color:var(--warn)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip-btn{height:42px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);font-weight:700}
+.chip-btn.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--line);padding:3px;border-radius:13px;gap:3px}
+.seg button{height:40px;border:0;border-radius:10px;background:transparent;font-weight:700;font-size:14px;color:var(--muted);padding:0 6px}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.seg.sm button{height:32px;font-size:13px;padding:0 12px}
+.check-row{display:flex;align-items:center;gap:10px;min-height:40px;font-weight:600;font-size:15px}
+.check-row input{width:22px;height:22px;accent-color:var(--accent);flex:none;margin:0}
+.check-row a{color:var(--accent)}
+
+/* split panel */
+.split-tools{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.split-tools .sum{margin-left:auto;font-size:13px;font-weight:700;color:var(--muted)}
+.prow{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;padding:7px 12px;border:1.5px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:8px;text-align:left}
+button.prow.on{border-color:var(--accent);background:var(--accent-soft)}
+.check{width:24px;height:24px;border-radius:8px;border:2px solid var(--line2);flex:none;display:grid;place-items:center}
+.prow.on .check{background:var(--accent);border-color:var(--accent)}
+.prow.on .check::after{content:"";width:11px;height:6px;border:2.5px solid var(--accent-ink);border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.pname{flex:1;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pamt{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;color:var(--muted);text-align:right;min-width:72px}
+button.prow:not(.on) .pamt{opacity:.45}
+.stepper{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;flex:none}
+.stepper button{width:40px;height:40px;border:0;background:transparent;font-size:20px;font-weight:700;color:var(--accent)}
+.stepper input{width:54px;height:40px;border:0;text-align:center;background:transparent;font-weight:800;outline:none;padding:0}
+.item-in{width:112px;height:42px;text-align:right;flex:none;font-weight:700;font-variant-numeric:tabular-nums}
+.calc{margin-top:6px;padding:14px;border-radius:14px;background:var(--bg);border:1px dashed var(--line2)}
+.calc h3{font-size:14px;margin-bottom:10px}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.calc-grid label span{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:4px}
+.suffix{position:relative}
+.suffix .input{padding-right:34px;height:44px}
+.suffix em{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--muted);font-weight:700;font-size:14px}
+.calc-lines{font-size:14px}
+.calc-lines div{display:flex;justify-content:space-between;padding:3px 0}
+.calc-lines .tot{border-top:1px solid var(--line2);margin-top:4px;padding-top:7px;font-weight:800}
+.status{margin-top:10px;padding:10px 12px;border-radius:11px;font-size:14px;font-weight:700}
+.status.ok{background:var(--pos-soft);color:var(--pos)}
+.status.bad{background:var(--warn-soft);color:var(--warn)}
+.status .btn{margin-top:8px}
+
+/* expense list */
+.day{display:flex;justify-content:space-between;align-items:baseline;margin:18px 4px 6px;font-size:13px;font-weight:800;color:var(--muted)}
+.list{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.exp{display:flex;gap:12px;align-items:center;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;text-align:left}
+.exp:last-child{border-bottom:0}
+.exp:active{background:var(--bg)}
+.avatar{flex:none;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-weight:800;font-size:16px}
+.avatar.sm{width:34px;height:34px;border-radius:11px;font-size:14px}
+.exp-main{flex:1;min-width:0}
+.exp-title{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exp-sub{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exp-amt{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.exp-amt small{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+.empty{text-align:center;padding:30px 16px;color:var(--muted)}
+.empty b{display:block;font-size:40px;margin-bottom:6px}
+
+/* settlement */
+.bal{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.bal:last-of-type{border-bottom:0}
+.bal-main{flex:1;min-width:0}
+.bal-name{font-weight:800;display:flex;align-items:center;gap:6px}
+.bal-sub{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.badge{flex:none;text-align:right;font-weight:800;font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:10px;font-size:15px;line-height:1.2}
+.badge small{display:block;font-size:11px;font-weight:700;opacity:.85}
+.badge.pos{background:var(--pos-soft)} .badge.neg{background:var(--neg-soft)} .badge.zero{background:var(--bg);color:var(--muted)}
+.me{font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
+.tr{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1.5px solid var(--line);border-radius:14px;margin-bottom:8px;background:var(--card);text-align:left}
+.tr .check{border-radius:50%}
+.tr.done .check{background:var(--pos);border-color:var(--pos)}
+.tr.done .check::after{content:"";width:11px;height:6px;border:2.5px solid #fff;border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.tr-who{flex:1;min-width:0;font-weight:700}
+.tr-who span{color:var(--muted);font-weight:600;margin:0 4px}
+.tr-amt{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tr.done{opacity:.6}
+.tr.done .tr-amt{text-decoration:line-through}
+.tr.mine{border-color:var(--accent)}
+.done-tag{display:block;font-size:12px;color:var(--pos);font-weight:700}
+.allclear{text-align:center;padding:18px;font-weight:700;color:var(--muted)}
+.receipt-img{display:block;width:100%;max-width:420px;margin:12px auto 0;border-radius:12px;-webkit-touch-callout:default;user-select:auto}
+.img-hint{text-align:center;font-size:13px;color:var(--muted);font-weight:600;margin:8px 0 0}
+pre.report{white-space:pre-wrap;word-break:break-word;font:13.5px/1.6 var(--font);background:var(--bg);border-radius:12px;padding:12px;margin:10px 0 0;max-height:320px;overflow:auto}
+details summary{cursor:pointer;font-weight:700;color:var(--accent);font-size:14px;margin-top:12px}
+.link-box{display:flex;gap:8px;margin-top:10px}
+.link-box .input{font-size:14px;color:var(--muted);min-width:0}
+
+/* settings */
+.mrow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.mrow .input{flex:1;min-width:0}
+.addrow{display:flex;gap:8px;margin-top:4px}
+.addrow .input{flex:1;min-width:0}
+.currow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.currow b{min-width:40px}
+.currow .eq{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:14px;font-weight:600;color:var(--muted)}
+.currow .rate{width:110px;text-align:right;font-weight:700;color:var(--ink)}
+.lrow{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:14px;margin-bottom:8px;background:var(--card);text-align:left}
+.lrow.on{border-color:var(--accent);background:var(--accent-soft)}
+.lrow div{flex:1;min-width:0}
+.lrow b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow small{color:var(--muted);font-size:13px}
+.tag{font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--pos-soft);color:var(--pos);white-space:nowrap}
+.foot{text-align:center;font-size:12px;color:var(--muted);margin:24px 0 0}
+
+/* welcome */
+.welcome{text-align:center;padding:28px 20px}
+.welcome .logo{font-size:56px;line-height:1}
+.welcome h1{font-size:26px;margin:10px 0 6px}
+.welcome p{color:var(--muted);margin:0 0 14px}
+.feat{list-style:none;padding:0;margin:0 0 20px;text-align:left;display:grid;gap:8px}
+.feat li{background:var(--bg);border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600}
+.welcome .btn{margin-top:8px}
+
+/* sheet & dialog */
+#sheet-root,#dialog-root{position:fixed;inset:0;z-index:50}
+#dialog-root{z-index:60;display:flex;align-items:center;justify-content:center;padding:20px}
+.backdrop{position:absolute;inset:0;background:rgba(8,10,18,.5);animation:fade .18s ease}
+.sheet{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;max-height:calc(100% - 20px - env(safe-area-inset-top));background:var(--bg);border-radius:22px 22px 0 0;display:flex;flex-direction:column;animation:up .24s cubic-bezier(.2,.8,.2,1);overflow:hidden}
+.sheet.tall{height:calc(100% - 20px - env(safe-area-inset-top))}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--card);border-bottom:1px solid var(--line);flex:none}
+.sheet-head b{font-size:16px}
+.sheet-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 14px}
+.sheet-foot{flex:none;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+.dialog{position:relative;width:100%;max-width:400px;max-height:calc(100% - 20px);overflow:auto;background:var(--card);border-radius:20px;padding:20px;animation:pop .2s ease}
+.dialog h3{font-size:18px;margin-bottom:8px}
+.dialog p{margin:0 0 12px;color:var(--muted);font-size:15px}
+.dialog ul{margin:0 0 12px;padding-left:20px;color:var(--muted)}
+.dlg-btns{display:flex;gap:8px;margin-top:16px}
+.dlg-btns .btn{flex:1}
+.dialog textarea{width:100%;min-height:200px;border:1.5px solid var(--line);border-radius:12px;padding:10px;background:var(--bg)}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+#toast{position:fixed;z-index:80;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--card);padding:11px 18px;border-radius:14px;font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:.2s;max-width:calc(100% - 40px);text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+#toast.show{opacity:1;transform:translateX(-50%)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header id="top"></header>
+<main id="app" class="wrap"></main>
+
+<button id="fab" type="button" data-act="add-exp" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>記一筆
+</button>
+
+<nav id="tabs" hidden>
+  <div class="in">
+    <button type="button" data-act="tab" data-tab="expenses">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>消費明細
+    </button>
+    <button type="button" data-act="tab" data-tab="settle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h12l-3-3M17 17H5l3 3"/></svg>結算與分享
+    </button>
+    <button type="button" data-act="tab" data-tab="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>成員與設定
+    </button>
+  </div>
+</nav>
+
+<div id="sheet-root" hidden></div>
+<div id="dialog-root" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+/* =====================================================================
+   分帳小幫手 — 單檔、純前端
+   ・資料存在瀏覽器 localStorage，可匯出／匯入備份
+   ・「分享帳單」把整本帳本壓縮進網址（#d=...），不需伺服器
+   ・（選用）填入下方 FIREBASE_CONFIG，就能開啟「多人即時房間」
+   ===================================================================== */
+
+/* ▼▼▼ 想開啟多人即時房間，把 Firebase 網頁應用程式的設定貼在這裡（說明見 README.md）
+   沒有填寫時，網站一樣可以完整使用，只是不會出現房間功能。
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIza....",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef"
+};
+*/
+const FIREBASE_CONFIG = null;
+/* ▲▲▲ */
+
+const FIREBASE_VERSION = '10.12.2';
+const APP_NAME = '分帳小幫手';
+const STORE_KEY = 'splitbill.v1';
+
+/* ---------------- 小工具 ---------------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function uid(n = 10) {
+  const a = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const b = crypto.getRandomValues(new Uint8Array(n));
+  let s = ''; for (const x of b) s += a[x % 36];
+  return s;
+}
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const today = () => ymd(new Date());
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+const firstChar = s => Array.from(String(s || '?').trim())[0] || '?';
+
+/* ---------------- 精準十進位（全程整數 / BigInt，沒有浮點誤差） ---------------- */
+// "1,234.5" → 123450n（dp=2）；超出位數四捨五入；無效回傳 null
+function parseScaled(str, dp) {
+  if (str == null) return null;
+  let s = String(str).trim()
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[．。]/g, '.').replace(/[,，\s]/g, '');
+  if (s === '') return null;
+  const m = /^(\d*)(?:\.(\d*))?$/.exec(s);
+  if (!m || (m[1] === '' && !m[2])) return null;
+  const ip = m[1] || '0'; let fp = m[2] || '';
+  const extra = fp.length > dp ? fp[dp] : '0';
+  fp = (fp + '0'.repeat(dp)).slice(0, dp);
+  let v = BigInt(ip + fp);
+  if (extra >= '5') v += 1n;
+  return v;
+}
+function scaledToStr(v, dp) {
+  v = BigInt(v); const neg = v < 0n; if (neg) v = -v;
+  const s = v.toString().padStart(dp + 1, '0');
+  const ip = dp ? s.slice(0, -dp) : s;
+  const fp = dp ? s.slice(-dp).replace(/0+$/, '') : '';
+  return (neg ? '-' : '') + ip + (fp ? '.' + fp : '');
+}
+function parseCents(str) { const v = parseScaled(str, 2); if (v == null || v > 100000000000000n) return null; return Number(v); }
+const centsToStr = c => scaledToStr(BigInt(c || 0), 2);
+function divRound(a, b) { // BigInt 四捨五入（遠離 0）
+  const neg = a < 0n; if (neg) a = -a;
+  let q = a / b; if ((a % b) * 2n >= b) q += 1n;
+  return neg ? -q : q;
+}
+function fmtCents(c, dp = 2, trim = false) {
+  const a = Math.abs(c); let s = Math.floor(a / 100).toLocaleString('en-US');
+  if (dp === 2) { let f = String(a % 100).padStart(2, '0'); if (trim) f = f.replace(/0+$/, ''); if (f) s += '.' + f; }
+  return (c < 0 ? '-' : '') + s;
+}
+// mode: integer（四捨五入到整數）/ decimal（兩位小數）/ trim（去掉多餘的 0）
+function fmtAmt(c, mode) {
+  if (mode === 'integer') return fmtCents(Number(divRound(BigInt(c), 100n)) * 100, 0);
+  return fmtCents(c, 2, mode === 'trim');
+}
+
+/* ---------------- 幣別 ---------------- */
+const CUR = {
+  TWD: ['NT$', '新台幣'], JPY: ['¥', '日圓'], USD: ['US$', '美元'], KRW: ['₩', '韓元'], EUR: ['€', '歐元'],
+  HKD: ['HK$', '港幣'], CNY: ['CN¥', '人民幣'], THB: ['฿', '泰銖'], SGD: ['S$', '新加坡幣'], MYR: ['RM', '馬來西亞令吉'],
+  VND: ['₫', '越南盾'], GBP: ['£', '英鎊'], AUD: ['A$', '澳幣'], CAD: ['C$', '加幣'], NZD: ['NZ$', '紐西蘭幣'],
+  CHF: ['CHF ', '瑞士法郎'], PHP: ['₱', '菲律賓披索'], IDR: ['Rp', '印尼盾'], MOP: ['MOP$', '澳門幣'], CZK: ['Kč ', '捷克克朗']
+};
+const sym = c => CUR[c]?.[0] ?? (c + ' ');
+const curName = c => CUR[c]?.[1] ?? c;
+const money = (c, code, mode = 'trim') => (c < 0 ? '−' : '') + sym(code) + fmtAmt(Math.abs(c), mode);
+
+/* ---------------- 資料儲存 ---------------- */
+function newLedger(name) {
+  const t = Date.now();
+  return { id: uid(), name: name || '新帳本', mainCurrency: 'TWD', currencies: [], members: [], expenses: [], rounding: 'integer', settled: {}, room: null, me: null, createdAt: t, updatedAt: t };
+}
+const objMap = (o, f) => Object.fromEntries(Object.entries(o && typeof o === 'object' ? o : {}).map(([k, v]) => [String(k), f(v)]));
+function normalizeExpense(e) {
+  return {
+    id: String(e.id), title: String(e.title || '未命名消費').slice(0, 100),
+    amount: Math.max(0, Math.round(+e.amount || 0)),
+    currency: /^[A-Z]{3}$/.test(e.currency) ? e.currency : 'TWD',
+    payer: String(e.payer || ''), date: /^\d{4}-\d{2}-\d{2}$/.test(e.date) ? e.date : today(),
+    mode: ['equal', 'shares', 'itemized'].includes(e.mode) ? e.mode : 'equal',
+    participants: Array.isArray(e.participants) ? e.participants.map(String) : [],
+    shares: objMap(e.shares, v => String(v)), items: objMap(e.items, v => Math.max(0, Math.round(+v || 0))),
+    service: String(e.service || ''), discount: Math.max(0, Math.round(+e.discount || 0)),
+    note: String(e.note || '').slice(0, 200), createdAt: +e.createdAt || 0, updatedAt: +e.updatedAt || 0
+  };
+}
+function normalizeLedger(l) {
+  const L = { ...newLedger(''), ...l };
+  L.id = String(L.id || uid());
+  L.name = String(L.name || '未命名帳本').slice(0, 60);
+  L.mainCurrency = /^[A-Z]{3}$/.test(L.mainCurrency) ? L.mainCurrency : 'TWD';
+  L.currencies = (Array.isArray(L.currencies) ? L.currencies : [])
+    .filter(c => c && /^[A-Z]{3}$/.test(c.code) && c.code !== L.mainCurrency)
+    .map(c => ({ code: c.code, rate: String(c.rate ?? '') }));
+  L.members = (Array.isArray(L.members) ? L.members : []).filter(m => m && m.id)
+    .map((m, i) => ({ id: String(m.id), name: String(m.name || '成員').slice(0, 30), createdAt: +m.createdAt || i }));
+  L.expenses = (Array.isArray(L.expenses) ? L.expenses : []).filter(e => e && e.id).map(normalizeExpense);
+  L.rounding = L.rounding === 'decimal' ? 'decimal' : 'integer';
+  L.settled = L.settled && typeof L.settled === 'object' ? L.settled : {};
+  L.room = L.room && L.room.id ? { id: String(L.room.id) } : null;
+  L.me = L.me ? String(L.me) : null;
+  return L;
+}
+function emptyStore() { return { v: 1, ledgers: {}, order: [], currentId: null, profile: { bankCode: '', bankAccount: '', accountName: '', attach: false } }; }
+function loadStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return emptyStore();
+    const s = { ...emptyStore(), ...JSON.parse(raw) };
+    const ledgers = {};
+    for (const l of Object.values(s.ledgers || {})) { const L = normalizeLedger(l); ledgers[L.id] = L; }
+    s.ledgers = ledgers;
+    s.order = (s.order || []).filter(id => ledgers[id]);
+    for (const id in ledgers) if (!s.order.includes(id)) s.order.push(id);
+    s.profile = { ...emptyStore().profile, ...(s.profile || {}) };
+    return s;
+  } catch (e) { console.error(e); return emptyStore(); }
+}
+let store = loadStore();
+let saveWarned = false;
+function saveStore() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+  catch (e) { if (!saveWarned) { saveWarned = true; toast('瀏覽器無法儲存資料（可能是無痕模式），請記得匯出備份'); } }
+}
+function addLedger(L) { store.ledgers[L.id] = L; store.order.unshift(L.id); store.currentId = L.id; saveStore(); }
+
+/* ---------------- 計算核心 ---------------- */
+function rateMicro(L, code) {
+  if (code === L.mainCurrency) return 1000000n;
+  const c = L.currencies.find(x => x.code === code); if (!c) return null;
+  const r = parseScaled(c.rate, 6); return r && r > 0n ? r : null;
+}
+const rateOf = (L, code) => L.currencies.find(x => x.code === code)?.rate || '';
+function toMain(L, cents, code) { const r = rateMicro(L, code); if (r == null) return null; return Number(divRound(BigInt(cents) * r, 1000000n)); }
+
+// 最大餘數法：把 total（最小單位）依權重分配，保證加總完全相等
+function allocate(total, weights, salt = '') {
+  const ws = weights.filter(([, w]) => w > 0n);
+  const W = ws.reduce((a, [, w]) => a + w, 0n);
+  if (W === 0n) return null;
+  const T = BigInt(total); const out = {}; const rem = []; let sum = 0n;
+  for (const [id, w] of ws) { const q = T * w / W; out[id] = q; sum += q; rem.push([id, T * w % W]); }
+  rem.sort((a, b) => a[1] === b[1] ? hashStr(salt + a[0]) - hashStr(salt + b[0]) : (b[1] > a[1] ? 1 : -1));
+  for (let i = 0, left = T - sum; left > 0n; i++, left--) out[rem[i % rem.length][0]] += 1n;
+  for (const k in out) out[k] = Number(out[k]);
+  return out;
+}
+function expenseWeights(e, idSet) {
+  if (e.mode === 'shares') return Object.entries(e.shares || {}).filter(([id]) => idSet.has(id)).map(([id, s]) => [id, parseScaled(s, 3) || 0n]);
+  if (e.mode === 'itemized') return Object.entries(e.items || {}).filter(([id]) => idSet.has(id)).map(([id, c]) => [id, BigInt(Math.max(0, Math.round(+c || 0)))]);
+  return (e.participants || []).filter(id => idSet.has(id)).map(id => [id, 1n]);
+}
+function itemCalc(e) {
+  const subtotal = Object.values(e.items || {}).reduce((a, c) => a + (+c || 0), 0);
+  const bp = parseScaled(e.service, 2) || 0n; // 百分比 ×100
+  const svc = Number(divRound(BigInt(subtotal) * bp, 10000n));
+  const disc = e.discount || 0;
+  return { subtotal, svc, disc, calc: Math.max(0, subtotal + svc - disc) };
+}
+function computeExpense(L, e) {
+  const ids = new Set(L.members.map(m => m.id));
+  const main = toMain(L, e.amount || 0, e.currency || L.mainCurrency);
+  if (main == null) return { main: null, shares: null, error: `缺少 ${e.currency} 的匯率` };
+  const order = new Map(L.members.map((m, i) => [m.id, i]));
+  const w = expenseWeights(e, ids).sort((a, b) => order.get(a[0]) - order.get(b[0]));
+  const shares = allocate(main, w, e.id || '');
+  if (!shares) return { main, shares: null, error: '沒有分攤對象' };
+  if (!ids.has(e.payer)) return { main, shares, error: '付款人已不在成員名單' };
+  return { main, shares, error: null };
+}
+function computeLedger(L) {
+  const per = {}; for (const m of L.members) per[m.id] = { paid: 0, owed: 0, net: 0 };
+  let total = 0; const errors = []; const byExp = {};
+  for (const e of L.expenses) {
+    const r = computeExpense(L, e); byExp[e.id] = r;
+    if (r.error) { errors.push({ e, msg: r.error }); continue; }
+    total += r.main; per[e.payer].paid += r.main;
+    for (const [id, c] of Object.entries(r.shares)) per[id].owed += c;
+  }
+  for (const id in per) per[id].net = per[id].paid - per[id].owed;
+  return { total, per, errors, byExp };
+}
+// 讓一組數字四捨五入到 unit，且總和剛好等於 target（尾差給餘數最大的人）
+function roundLR(entries, target, unit = 100) {
+  const out = {}; let sum = 0; const rem = [];
+  for (const [id, v] of entries) { const f = Math.floor(v / unit) * unit; out[id] = f; sum += f; rem.push([id, v - f]); }
+  let k = Math.round((target - sum) / unit);
+  rem.sort((a, b) => b[1] - a[1]);
+  for (let i = 0; k > 0 && rem.length; i++, k--) out[rem[i % rem.length][0]] += unit;
+  return out;
+}
+// 最少轉帳次數：找出最多個「總和為 0」的不相交小組（每組 n 人只需 n−1 筆）
+function minTransfers(entries) {
+  const nz = entries.filter(([, v]) => v !== 0);
+  const n = nz.length; if (!n) return [];
+  let groups;
+  if (n <= 16) {
+    const N = 1 << n; const sum = new Float64Array(N); const dp = new Int8Array(N);
+    for (let m = 1; m < N; m++) { const low = m & -m; sum[m] = sum[m ^ low] + nz[31 - Math.clz32(low)][1]; }
+    for (let m = 1; m < N; m++) {
+      let best = 0; for (let x = m; x; x &= x - 1) { const v = dp[m ^ (x & -x)]; if (v > best) best = v; }
+      dp[m] = best + (sum[m] === 0 ? 1 : 0);
+    }
+    const seq = []; let m = N - 1;
+    while (m) {
+      const need = dp[m] - (sum[m] === 0 ? 1 : 0);
+      for (let x = m; x; x &= x - 1) { const low = x & -x; if (dp[m ^ low] === need) { seq.push(31 - Math.clz32(low)); m ^= low; break; } }
+    }
+    seq.reverse(); groups = []; let g = [], s = 0;
+    for (const i of seq) { g.push(nz[i]); s += nz[i][1]; if (s === 0) { groups.push(g); g = []; } }
+    if (g.length) groups.push(g);
+  } else groups = [nz];
+  const out = [];
+  for (const g of groups) {
+    const cr = g.filter(([, v]) => v > 0).map(([id, v]) => ({ id, v }));
+    const db = g.filter(([, v]) => v < 0).map(([id, v]) => ({ id, v: -v }));
+    while (cr.length && db.length) {
+      cr.sort((a, b) => b.v - a.v); db.sort((a, b) => b.v - a.v);
+      const c = cr[0], d = db[0], a = Math.min(c.v, d.v);
+      out.push({ from: d.id, to: c.id, amount: a });
+      c.v -= a; d.v -= a; if (!c.v) cr.shift(); if (!d.v) db.shift();
+    }
+  }
+  return out;
+}
+function settleView(L, stats, mode = L.rounding) {
+  const ids = L.members.map(m => m.id);
+  let total = stats.total; const paid = {}, net = {}, owed = {};
+  let tail = false;
+  if (mode === 'integer') {
+    total = Number(divRound(BigInt(stats.total), 100n)) * 100;
+    Object.assign(paid, roundLR(ids.map(id => [id, stats.per[id].paid]), total));
+    Object.assign(net, roundLR(ids.map(id => [id, stats.per[id].net]), 0));
+    for (const id of ids) {
+      const naive = Number(divRound(BigInt(stats.per[id].net), 100n)) * 100;
+      if (naive !== net[id] || Number(divRound(BigInt(stats.per[id].paid), 100n)) * 100 !== paid[id]) tail = true;
+    }
+  } else for (const id of ids) { paid[id] = stats.per[id].paid; net[id] = stats.per[id].net; }
+  for (const id of ids) owed[id] = paid[id] - net[id];
+  const order = new Map(ids.map((id, i) => [id, i]));
+  const transfers = minTransfers(ids.map(id => [id, net[id]]))
+    .sort((a, b) => order.get(a.from) - order.get(b.from) || order.get(a.to) - order.get(b.to))
+    .map(t => ({ ...t, key: `${t.from}_${t.to}_${t.amount}` }));
+  return { mode, total, paid, owed, net, transfers, tail };
+}
+const memberName = (L, id) => L.members.find(m => m.id === id)?.name ?? '（已移除）';
+
+/* ---------------- 分享連結編碼（壓縮進網址） ---------------- */
+function b64urlEncode(bytes) { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function b64urlDecode(str) { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+async function streamBytes(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+function packLedger(L) {
+  const idx = new Map(L.members.map((m, i) => [m.id, i]));
+  const e = L.expenses.map(x => {
+    let m = 0, d;
+    if (x.mode === 'shares') { m = 1; d = Object.entries(x.shares).filter(([id]) => idx.has(id)).map(([id, s]) => [idx.get(id), s]); }
+    else if (x.mode === 'itemized') { m = 2; d = [Object.entries(x.items).filter(([id]) => idx.has(id)).map(([id, c]) => [idx.get(id), c]), x.service, x.discount]; }
+    else d = x.participants.filter(id => idx.has(id)).map(id => idx.get(id));
+    const row = [x.title, x.amount, x.currency === L.mainCurrency ? 0 : x.currency, idx.has(x.payer) ? idx.get(x.payer) : -1, x.date, m, d];
+    if (x.note) row.push(x.note);
+    return row;
+  });
+  const s = Object.keys(L.settled).map(k => { const [f, t, a] = k.split('_'); return idx.has(f) && idx.has(t) ? [idx.get(f), idx.get(t), +a] : null; }).filter(Boolean);
+  return { v: 1, n: L.name, c: L.mainCurrency, x: L.currencies.map(c => [c.code, c.rate]), r: L.rounding === 'decimal' ? 1 : 0, m: L.members.map(m => m.name), e, s };
+}
+function unpackLedger(p) {
+  if (!p || p.v !== 1) throw new Error('bad');
+  const L = newLedger(p.n);
+  L.mainCurrency = p.c || 'TWD'; L.rounding = p.r ? 'decimal' : 'integer';
+  L.currencies = (p.x || []).map(([code, rate]) => ({ code, rate: String(rate) }));
+  L.members = (p.m || []).map((name, i) => ({ id: uid(), name, createdAt: i }));
+  const id = i => L.members[i]?.id;
+  L.expenses = (p.e || []).map((r, i) => {
+    const [title, amount, cur, payer, date, m, d, note] = r;
+    const e = { id: uid(), title, amount, currency: cur || L.mainCurrency, payer: id(payer) || '', date, mode: ['equal', 'shares', 'itemized'][m] || 'equal', participants: [], shares: {}, items: {}, service: '', discount: 0, note: note || '', createdAt: i };
+    if (m === 1) for (const [j, s] of d) { if (id(j)) e.shares[id(j)] = s; }
+    else if (m === 2) { for (const [j, c] of d[0]) { if (id(j)) e.items[id(j)] = c; } e.service = d[1] || ''; e.discount = d[2] || 0; }
+    else e.participants = d.map(id).filter(Boolean);
+    return e;
+  });
+  for (const [f, t, a] of p.s || []) if (id(f) && id(t)) L.settled[`${id(f)}_${id(t)}_${a}`] = true;
+  return normalizeLedger(L);
+}
+async function encodeShare(L) {
+  const bytes = new TextEncoder().encode(JSON.stringify(packLedger(L)));
+  if (typeof CompressionStream !== 'undefined') {
+    try { return 'z' + b64urlEncode(await streamBytes(bytes, new CompressionStream('deflate-raw'))); } catch (e) { }
+    try { return 'y' + b64urlEncode(await streamBytes(bytes, new CompressionStream('deflate'))); } catch (e) { }
+  }
+  return 'j' + b64urlEncode(bytes);
+}
+async function decodeShare(code) {
+  const kind = code[0], bytes = b64urlDecode(code.slice(1));
+  let out;
+  if (kind === 'j') out = bytes;
+  else if (kind === 'z' || kind === 'y') {
+    if (typeof DecompressionStream === 'undefined') throw new Error('old');
+    out = await streamBytes(bytes, new DecompressionStream(kind === 'z' ? 'deflate-raw' : 'deflate'));
+  } else throw new Error('bad');
+  return unpackLedger(JSON.parse(new TextDecoder().decode(out)));
+}
+const baseUrl = () => location.origin + location.pathname;
+
+/* ---------------- UI 狀態 ---------------- */
+const ui = { tab: 'expenses', shared: null, sync: { status: 'off', msg: '' }, share: { key: '', url: '' }, receipt: null, attachLink: false, conn: null, lastCurrency: null, pendingRender: false };
+const cur = () => ui.shared || store.ledgers[store.currentId] || null;
+const readonly = () => !!ui.shared;
+
+function touch(L) { L.updatedAt = Date.now(); if (L !== ui.shared) saveStore(); scheduleRender(); }
+// 所有修改都經過這裡：先改本機、立即重畫，若是房間帳本再寫到雲端
+function mutate(L, fn, remoteOp) {
+  if (L === ui.shared) return;
+  fn(L); touch(L);
+  if (L.room && remoteOp) remote(L, remoteOp);
+}
+
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return; renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    const a = document.activeElement;
+    const typing = a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(a.type)));
+    if (typing && $('#app').contains(a)) { ui.pendingRender = true; renderHeader(cur()); return; }
+    render();
+  });
+}
+document.addEventListener('focusout', () => { if (ui.pendingRender) setTimeout(() => { if (ui.pendingRender) { ui.pendingRender = false; scheduleRender(); } }, 0); });
+
+/* ---------------- 共用元件 ---------------- */
+let toastTimer;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2400); }
+function avatar(L, id, sm) {
+  const m = L.members.find(x => x.id === id); const h = hashStr(id || 'x') % 360;
+  return `<span class="avatar${sm ? ' sm' : ''}" style="background:hsl(${h} 70% 90%);color:hsl(${h} 55% 30%)">${esc(firstChar(m?.name))}</span>`;
+}
+function openSheet(html, { onMount, tall } = {}) {
+  const root = $('#sheet-root');
+  root.innerHTML = `<div class="backdrop" data-act="sheet-close"></div><div class="sheet${tall ? ' tall' : ''}" role="dialog" aria-modal="true">${html}</div>`;
+  root.hidden = false; document.body.classList.add('locked');
+  onMount?.($('.sheet', root));
+}
+function closeSheet() { const root = $('#sheet-root'); root.hidden = true; root.innerHTML = ''; if ($('#dialog-root').hidden) document.body.classList.remove('locked'); }
+let dialogCancel = null;
+function openDialog(html, onMount, onCancel) {
+  const root = $('#dialog-root');
+  root.innerHTML = `<div class="backdrop" data-act="dialog-cancel"></div><div class="dialog" role="dialog" aria-modal="true">${html}</div>`;
+  root.hidden = false; document.body.classList.add('locked'); dialogCancel = onCancel || null;
+  onMount?.($('.dialog', root));
+}
+function closeDialog() { const root = $('#dialog-root'); root.hidden = true; root.innerHTML = ''; dialogCancel = null; if ($('#sheet-root').hidden) document.body.classList.remove('locked'); }
+function ask({ title, msg = '', ok = '確定', cancel = '取消', danger = false }) {
+  return new Promise(res => {
+    openDialog(`<h3>${esc(title)}</h3>${msg ? `<p>${msg}</p>` : ''}<div class="dlg-btns">${cancel ? `<button type="button" class="btn" data-r="0">${cancel}</button>` : ''}<button type="button" class="btn ${danger ? 'danger-fill' : 'primary'}" data-r="1">${ok}</button></div>`,
+      el => el.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) { closeDialog(); res(b.dataset.r === '1'); } }),
+      () => res(false));
+  });
+}
+function askText({ title, value = '', placeholder = '', ok = '確定', maxlength = 40, msg = '' }) {
+  return new Promise(res => {
+    openDialog(`<h3>${esc(title)}</h3>${msg ? `<p>${msg}</p>` : ''}<input class="input" id="dlg-in" maxlength="${maxlength}" placeholder="${esc(placeholder)}" value="${esc(value)}" enterkeyhint="done" autocomplete="off"><div class="dlg-btns"><button type="button" class="btn" data-r="0">取消</button><button type="button" class="btn primary" data-r="1">${ok}</button></div>`,
+      el => {
+        const inp = $('#dlg-in', el); inp.focus(); inp.select();
+        const done = v => { closeDialog(); res(v); };
+        el.addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) done(b.dataset.r === '1' ? inp.value.trim() : null); });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); done(inp.value.trim()); } });
+      }, () => res(null));
+  });
+}
+async function copyText(text, okMsg = '已複製') {
+  let ok = false;
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); ok = true; } } catch (e) { }
+  if (!ok) {
+    try {
+      const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px';
+      document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+      ok = document.execCommand('copy'); ta.remove();
+    } catch (e) { }
+  }
+  if (ok) toast(okMsg);
+  else openDialog(`<h3>請手動複製</h3><p>這個瀏覽器不允許自動複製，請長按下方文字全選後複製。</p><textarea readonly id="manual-copy">${esc(text)}</textarea><div class="dlg-btns"><button type="button" class="btn primary" data-act="dialog-cancel">完成</button></div>`, el => { const t = $('#manual-copy', el); t.focus(); t.select(); });
+}
+function openLine(text) {
+  const url = 'https://line.me/R/share?text=' + encodeURIComponent(text);
+  const w = window.open(url, '_blank'); if (!w) location.href = url;
+}
+
+/* ---------------- 畫面 ---------------- */
+function render() {
+  const L = cur();
+  renderHeader(L);
+  const app = $('#app');
+  if (!L) { app.innerHTML = welcomeHTML(); $('#tabs').hidden = true; $('#fab').hidden = true; return; }
+  $('#tabs').hidden = false;
+  $$('#tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
+  $('#fab').hidden = readonly() || ui.tab === 'settings';
+  const stats = computeLedger(L);
+  if (ui.tab === 'settle') { app.innerHTML = settleHTML(L, stats); afterSettleRender(L, stats); }
+  else if (ui.tab === 'settings') app.innerHTML = settingsHTML(L);
+  else app.innerHTML = expensesHTML(L, stats);
+}
+function renderHeader(L) {
+  const s = ui.sync;
+  const syncTxt = { connecting: '連線中…', live: '即時同步', offline: '離線中', error: '同步錯誤', missing: '房間不存在' }[s.status];
+  const chip = L?.room && !ui.shared && syncTxt ? `<button type="button" class="sync ${s.status}" data-act="sync-info"><i></i>${syncTxt}</button>` : '';
+  $('#top').innerHTML = `<div class="hdr">${L
+    ? `<button type="button" class="ledger-btn" data-act="ledgers" aria-label="切換帳本"><span>${esc(L.name)}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>`
+    : `<b class="brand">🧾 ${APP_NAME}</b>`}${chip}</div>
+    ${ui.shared ? `<div class="banner"><div><p>👀 你正在檢視朋友分享的帳本（唯讀）</p><button type="button" class="btn primary sm" data-act="save-shared">存成我的帳本</button><button type="button" class="btn sm" data-act="close-shared">關閉</button></div></div>` : ''}`;
+}
+function welcomeHTML() {
+  return `<section class="card welcome">
+    <div class="logo">🧾</div>
+    <h1>${APP_NAME}</h1>
+    <p>旅遊、聚餐都適用。免註冊、免下載，資料只存在你的瀏覽器裡。</p>
+    <ul class="feat">
+      <li>➗ 三種分攤：均分、份數、各自點單＋服務費／折扣</li>
+      <li>💱 多幣別混合記帳，自訂匯率自動換算</li>
+      <li>🔁 自動抵銷交叉墊付，算出最少轉帳次數</li>
+      <li>💬 一鍵產生 LINE 文字、結算圖片與分享連結</li>
+      ${FIREBASE_CONFIG ? '<li>☁️ 開房間邀請朋友，一起即時記帳</li>' : ''}
+    </ul>
+    <button type="button" class="btn primary block lg" data-act="sample">載入範例帳本，先玩玩看</button>
+    <button type="button" class="btn dark block" data-act="new-ledger">建立新帳本</button>
+    <button type="button" class="btn ghost block" data-act="import">匯入備份檔</button>
+  </section>`;
+}
+function dateLabel(s) {
+  const [y, m, d] = s.split('-').map(Number); const dt = new Date(y, m - 1, d);
+  let lab = `${m}/${d}（${'日一二三四五六'[dt.getDay()]}）`;
+  if (y !== new Date().getFullYear()) lab = `${y}/${lab}`;
+  if (s === today()) lab += ' · 今天';
+  return lab;
+}
+function dateRange(L) {
+  const ds = L.expenses.map(e => e.date).sort(); if (!ds.length) return '';
+  const f = s => s.replace(/-/g, '/');
+  if (ds[0] === ds.at(-1)) return f(ds[0]);
+  return `${f(ds[0])} – ${ds[0].slice(0, 4) === ds.at(-1).slice(0, 4) ? f(ds.at(-1)).slice(5) : f(ds.at(-1))}`;
+}
+function splitLabel(L, e) {
+  const ids = new Set(L.members.map(m => m.id));
+  const n = expenseWeights(e, ids).filter(([, w]) => w > 0n).length;
+  if (e.mode === 'shares') return `依份數 · ${n} 人`;
+  if (e.mode === 'itemized') return `各自點單 · ${n} 人`;
+  return n === L.members.length ? `全員均分 · ${n} 人` : `${n} 人均分`;
+}
+function expensesHTML(L, stats) {
+  const v = settleView(L, stats);
+  const me = L.me && L.members.some(m => m.id === L.me) ? L.me : null;
+  let h = `<section class="card hero"><div><small>總花費</small><b class="num">${money(v.total, L.mainCurrency, L.rounding)}</b><span>${L.expenses.length} 筆 · ${L.members.length} 人${dateRange(L) ? ' · ' + dateRange(L) : ''}</span></div>`;
+  if (me) { const n = v.net[me]; h += `<div class="hero-r"><small>你目前</small><b class="num ${n > 0 ? 'pos' : n < 0 ? 'neg' : ''}">${n > 0 ? '應收 ' : n < 0 ? '應付 ' : ''}${n === 0 ? '已打平' : money(Math.abs(n), L.mainCurrency, L.rounding)}</b></div>`; }
+  h += `</section>`;
+  if (stats.errors.length) h += `<section class="card warnbox">⚠ 有 ${stats.errors.length} 筆消費暫時沒有計入結算<ul>${stats.errors.slice(0, 5).map(x => `<li>${esc(x.e.title)}：${esc(x.msg)}</li>`).join('')}</ul></section>`;
+  if (!L.members.length) {
+    return h + `<section class="card empty"><b>👥</b>先新增一起分帳的成員吧<div class="btn-col"><button type="button" class="btn primary" data-act="go-members">新增成員</button></div></section>`;
+  }
+  if (!L.expenses.length) {
+    return h + `<section class="card empty"><b>🧾</b>還沒有任何消費<br>按右下角「記一筆」開始記帳${Object.keys(store.ledgers).length <= 1 && !readonly() ? `<div class="btn-col"><button type="button" class="btn" data-act="sample">或載入範例帳本看看</button></div>` : ''}</section>`;
+  }
+  const sorted = [...L.expenses].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  const groups = new Map(); for (const e of sorted) { if (!groups.has(e.date)) groups.set(e.date, []); groups.get(e.date).push(e); }
+  for (const [date, list] of groups) {
+    const dayTotal = list.reduce((a, e) => a + (stats.byExp[e.id]?.main || 0), 0);
+    h += `<div class="day"><span>${dateLabel(date)}</span><span class="num">${money(dayTotal, L.mainCurrency, L.rounding)}</span></div><div class="list">`;
+    for (const e of list) {
+      const r = stats.byExp[e.id];
+      const foreign = e.currency !== L.mainCurrency;
+      h += `<button type="button" class="exp" data-act="edit-exp" data-id="${e.id}">${avatar(L, e.payer)}
+        <div class="exp-main"><div class="exp-title">${esc(e.title)}</div><div class="exp-sub">${esc(memberName(L, e.payer))} 付 · ${splitLabel(L, e)}${e.note ? ' · ' + esc(e.note) : ''}</div></div>
+        <div class="exp-amt">${money(e.amount, e.currency)}${foreign ? `<small>${r?.main != null ? '≈ ' + money(r.main, L.mainCurrency, L.rounding) : '⚠ 缺匯率'}</small>` : ''}</div></button>`;
+    }
+    h += `</div>`;
+  }
+  return h;
+}
+
+function settleHTML(L, stats) {
+  const v = settleView(L, stats);
+  const C = L.mainCurrency, M = v.mode;
+  const me = L.me;
+  const p = store.profile;
+  const hasBank = !!(p.bankAccount || '').trim();
+  let h = '';
+  if (stats.errors.length) h += `<section class="card warnbox">⚠ 有 ${stats.errors.length} 筆消費缺少匯率或分攤對象，暫未計入結算。</section>`;
+  h += `<section class="card"><div class="sec-head"><h2>每人收支</h2>
+    <div class="seg sm" role="group" aria-label="金額顯示"><button type="button" data-act="round" data-mode="integer" class="${M === 'integer' ? 'on' : ''}">整數</button><button type="button" data-act="round" data-mode="decimal" class="${M === 'decimal' ? 'on' : ''}">小數</button></div></div>`;
+  if (!L.members.length) h += `<p class="muted">還沒有成員。</p>`;
+  for (const m of L.members) {
+    const n = v.net[m.id];
+    h += `<div class="bal">${avatar(L, m.id, true)}<div class="bal-main"><div class="bal-name">${esc(m.name)}${m.id === me ? '<span class="me">你</span>' : ''}</div>
+      <div class="bal-sub">墊付 ${fmtAmt(v.paid[m.id], M)} ・ 應付 ${fmtAmt(v.owed[m.id], M)}</div></div>
+      <div class="badge ${n > 0 ? 'pos' : n < 0 ? 'neg' : 'zero'}"><small>${n > 0 ? '應收' : n < 0 ? '應付' : '已打平'}</small>${n === 0 ? '—' : fmtAmt(Math.abs(n), M)}</div></div>`;
+  }
+  h += `<p class="hint">總花費 ${money(v.total, C, M)}${M === 'integer' ? (v.tail ? '・已四捨五入到整數，1 元尾差已自動分配，收支總和剛好為 0' : '・已四捨五入到整數') : '・保留到小數點後兩位'}</p></section>`;
+
+  const done = v.transfers.filter(t => L.settled[t.key]).length;
+  h += `<section class="card"><div class="sec-head"><h2>轉帳建議</h2>${v.transfers.length ? `<span class="muted num" style="font-size:13px;font-weight:700">已結清 ${done}/${v.transfers.length}</span>` : ''}</div>`;
+  if (!v.transfers.length) h += `<div class="allclear">${L.expenses.length ? '🎉 大家已經互不相欠' : '記下第一筆消費後，這裡會出現轉帳建議'}</div>`;
+  for (const t of v.transfers) {
+    const isDone = !!L.settled[t.key];
+    h += `<button type="button" class="tr${isDone ? ' done' : ''}${me && (t.from === me || t.to === me) ? ' mine' : ''}" data-act="settle-toggle" data-key="${t.key}" role="checkbox" aria-checked="${isDone}" ${readonly() ? 'disabled' : ''}>
+      <span class="check"></span><span class="tr-who">${esc(memberName(L, t.from))}<span>→</span>${esc(memberName(L, t.to))}${isDone ? '<span class="done-tag">已結清</span>' : ''}</span><span class="tr-amt">${money(t.amount, C, M)}</span></button>`;
+  }
+  if (v.transfers.length) h += `<p class="hint">交叉墊付已互相抵銷，這是轉帳次數最少的方案。轉完帳點一下即可標記「已結清」。</p>`;
+  h += `</section>`;
+
+  h += `<section class="card"><h2>分享結算</h2>
+    <label class="check-row"><input type="checkbox" data-chg="attach-bank" ${p.attach && hasBank ? 'checked' : ''} ${hasBank ? '' : 'disabled'}><span>附上我的收款帳號${hasBank ? `（${esc(p.bankCode ? p.bankCode + ' ' : '')}${esc(maskAcct(p.bankAccount))}）` : '（<a href="#" data-act="go-profile">先到設定填寫</a>）'}</span></label>
+    <label class="check-row"><input type="checkbox" data-chg="attach-link" ${ui.attachLink ? 'checked' : ''}><span>附上完整明細連結</span></label>
+    <div class="btn-grid"><button type="button" class="btn dark" data-act="copy-report">複製文字報告</button><button type="button" class="btn line" data-act="line-report">傳到 LINE</button></div>
+    <div class="btn-col"><button type="button" class="btn block" data-act="make-image">🖼 產生結算圖片</button></div>
+    <div id="img-area"></div>
+    <details><summary>預覽文字報告</summary><pre class="report" id="report-preview"></pre></details>
+  </section>`;
+
+  h += `<section class="card"><h2>分享帳本連結</h2>
+    <p class="hint">整本帳本（明細、成員、匯率）都壓縮在連結裡，不經過任何伺服器。朋友點開就能看完整分帳，也能一鍵存成自己的帳本。之後若再修改，需要重新分享一次新連結。</p>
+    <div class="link-box"><input class="input" id="share-link" readonly value="產生中…" aria-label="分享連結"></div>
+    <div class="btn-grid"><button type="button" class="btn dark" data-act="copy-link">複製連結</button><button type="button" class="btn line" data-act="line-link">傳到 LINE</button></div>
+    ${navigator.share ? `<div class="btn-col"><button type="button" class="btn" data-act="share-link">用其他 App 分享…</button></div>` : ''}
+    <p class="hint" id="share-len"></p>
+  </section>`;
+
+  if (FIREBASE_CONFIG && !readonly()) h += roomCardHTML(L);
+  return h;
+}
+function roomCardHTML(L) {
+  if (L.room) {
+    const me = L.members.find(m => m.id === L.me);
+    return `<section class="card"><h2>☁️ 多人即時房間</h2>
+      <p class="hint">朋友點這個邀請連結、選擇自己的名字，就能一起記帳，所有人的畫面會即時同步。</p>
+      <div class="link-box"><input class="input" readonly value="${esc(roomUrl(L))}" aria-label="房間邀請連結"></div>
+      <div class="btn-grid"><button type="button" class="btn dark" data-act="room-copy">複製邀請連結</button><button type="button" class="btn line" data-act="room-line">傳到 LINE</button></div>
+      <p class="hint">你在這個房間的身分：<b>${me ? esc(me.name) : '尚未選擇'}</b>　<a href="#" data-act="room-who" style="color:var(--accent);font-weight:700">更換</a></p>
+    </section>`;
+  }
+  return `<section class="card"><h2>☁️ 多人即時房間</h2>
+    <p class="hint">想讓大家各自用手機記帳？建立房間後，把邀請連結丟到群組，朋友輸入名字就能加入，所有人的帳目即時同步。</p>
+    <div class="btn-col"><button type="button" class="btn primary" data-act="room-create">建立房間並取得邀請連結</button></div></section>`;
+}
+const roomUrl = L => `${baseUrl()}#room=${L.room.id}`;
+const maskAcct = a => { const s = String(a || '').replace(/\s/g, ''); return s.length > 5 ? '•••' + s.slice(-5) : s; };
+
+function afterSettleRender(L, stats) {
+  const v = settleView(L, stats);
+  const pre = $('#report-preview'); if (pre) pre.textContent = buildReport(L, stats, v);
+  ensureShareUrl(L).then(url => {
+    const inp = $('#share-link'); if (!inp) return;
+    inp.value = url;
+    const len = $('#share-len'); if (len) len.textContent = url.length > 6000 ? `⚠ 連結長度 ${url.length.toLocaleString()} 字元，部分 App 可能截斷。帳目很多時建議改用備份檔${FIREBASE_CONFIG ? '或多人房間' : ''}。` : '';
+    if (ui.attachLink && pre) pre.textContent = buildReport(L, stats, v);
+  }).catch(() => { const inp = $('#share-link'); if (inp) inp.value = '產生失敗'; });
+  if (ui.receipt) showReceipt(L, stats, v); // 已經產生過圖片時，資料變動自動更新
+}
+async function ensureShareUrl(L) {
+  const key = L.id + ':' + L.updatedAt + ':' + L.expenses.length;
+  if (ui.share.key === key && ui.share.url) return ui.share.url;
+  const url = `${baseUrl()}#d=${await encodeShare(L)}`;
+  ui.share = { key, url };
+  return url;
+}
+
+function settingsHTML(L) {
+  const dis = readonly() ? 'disabled' : '';
+  const p = store.profile;
+  let h = `<section class="card"><h2>帳本</h2>
+    <label class="field" style="margin:12px 0 0"><span>帳本名稱</span><input class="input" data-chg="ledger-name" maxlength="40" value="${esc(L.name)}" ${dis} autocomplete="off"></label></section>`;
+
+  h += `<section class="card"><h2>成員<small>${L.members.length} 人</small></h2><div style="margin-top:12px">`;
+  for (const m of L.members) {
+    h += `<div class="mrow">${avatar(L, m.id, true)}<input class="input sm" data-chg="member-name" data-id="${m.id}" maxlength="20" value="${esc(m.name)}" ${dis} aria-label="成員名稱" autocomplete="off">
+      <button type="button" class="icon-btn${L.me === m.id ? ' on' : ''}" data-act="set-me" data-id="${m.id}" title="標記這是我" ${dis}>我</button>
+      <button type="button" class="icon-btn danger" data-act="del-member" data-id="${m.id}" aria-label="刪除 ${esc(m.name)}" ${dis}>✕</button></div>`;
+  }
+  if (!readonly()) h += `<div class="addrow"><input class="input" id="add-member-input" placeholder="輸入名字，例如：小明" maxlength="60" enterkeyhint="done" autocomplete="off"><button type="button" class="btn primary" data-act="add-member">新增</button></div>
+    <p class="hint">可一次輸入多位，用逗號或頓號分隔（例如：小明、小華、阿美）。按「我」標記自己，結算時會特別標示。</p>`;
+  h += `</div></section>`;
+
+  const used = new Set(L.expenses.map(e => e.currency));
+  h += `<section class="card"><h2>幣別與匯率</h2>
+    <label class="field" style="margin:12px 0 8px"><span>主結算幣別</span><select class="input" data-chg="main-cur" ${dis}>${Object.keys(CUR).concat(CUR[L.mainCurrency] ? [] : [L.mainCurrency]).map(c => `<option value="${c}" ${c === L.mainCurrency ? 'selected' : ''}>${c} ${curName(c)}</option>`).join('')}</select></label>`;
+  for (const c of L.currencies) {
+    const bad = !(parseScaled(c.rate, 6) > 0n);
+    h += `<div class="currow"><b>${c.code}</b><span class="muted">${esc(curName(c.code))}${used.has(c.code) ? ' · 使用中' : ''}</span>
+      <span class="eq">1 ${c.code} =<input class="input sm rate" inputmode="decimal" data-chg="cur-rate" data-code="${c.code}" value="${esc(c.rate)}" placeholder="匯率" ${dis} style="${bad ? 'border-color:var(--neg)' : ''}" aria-label="${c.code} 匯率">${L.mainCurrency}</span>
+      <button type="button" class="icon-btn danger" data-act="del-cur" data-code="${c.code}" aria-label="移除 ${c.code}" ${dis}>✕</button></div>`;
+  }
+  if (!readonly()) {
+    const avail = Object.keys(CUR).filter(c => c !== L.mainCurrency && !L.currencies.some(x => x.code === c));
+    h += `<div class="addrow" style="margin-top:12px"><select class="input" id="add-cur-sel">${avail.map(c => `<option value="${c}">${c} ${curName(c)}</option>`).join('')}<option value="__other">其他幣別…</option></select><button type="button" class="btn primary" data-act="add-cur">新增外幣</button></div>
+      <p class="hint">建議填刷卡或實際換匯的匯率。修改匯率後，該幣別的所有消費會自動重新換算。</p>`;
+  }
+  h += `</section>`;
+
+  h += `<section class="card"><h2>我的收款資訊<small>只存在這台裝置</small></h2>
+    <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;margin-top:12px">
+      <label class="field" style="margin:0"><span>銀行代碼</span><input class="input" inputmode="numeric" maxlength="7" data-chg="profile" data-k="bankCode" value="${esc(p.bankCode)}" placeholder="例：812" autocomplete="off"></label>
+      <label class="field" style="margin:0"><span>戶名</span><input class="input" maxlength="30" data-chg="profile" data-k="accountName" value="${esc(p.accountName)}" placeholder="例：王小明" autocomplete="off"></label>
+    </div>
+    <label class="field" style="margin:10px 0 0"><span>銀行帳號</span><input class="input" inputmode="numeric" maxlength="30" data-chg="profile" data-k="bankAccount" value="${esc(p.bankAccount)}" placeholder="例：00012345678901" autocomplete="off"></label>
+    <p class="hint">不會放進分享連結或雲端房間。只有在「結算與分享」勾選「附上我的收款帳號」時，才會出現在文字報告和圖片裡。</p></section>`;
+
+  if (FIREBASE_CONFIG && !readonly()) {
+    h += `<section class="card"><h2>多人即時房間</h2>`;
+    if (L.room) h += `<p class="hint">這本帳本已連結到雲端房間，修改會即時同步給所有成員。離開房間後，這台裝置會保留一份本機副本，不會影響其他人。</p><div class="btn-col"><button type="button" class="btn" data-act="room-copy">複製邀請連結</button><button type="button" class="btn danger" data-act="room-leave">離開房間（保留本機副本）</button></div>`;
+    else h += `<p class="hint">建立房間後，大家可以各自用手機輸入名字加入、一起記帳。</p><div class="btn-col"><button type="button" class="btn primary" data-act="room-create">建立多人房間</button></div>`;
+    h += `</section>`;
+  }
+
+  h += `<section class="card"><h2>資料與備份</h2>
+    <p class="hint" style="margin-top:6px">所有帳本都存在這個瀏覽器裡。換手機、清除瀏覽紀錄前，記得先匯出備份。</p>
+    <div class="btn-col">
+      <button type="button" class="btn" data-act="export">⬇︎ 匯出全部帳本備份</button>
+      <button type="button" class="btn" data-act="import">⬆︎ 匯入備份檔</button>
+      <button type="button" class="btn" data-act="sample">載入範例帳本</button>
+      ${readonly() ? '' : `<button type="button" class="btn danger" data-act="del-ledger">刪除這本帳本</button>`}
+    </div></section>
+    <p class="foot">${APP_NAME} · 純前端、免登入${FIREBASE_CONFIG ? ' · 房間資料存放於 Firebase' : ''}</p>`;
+  return h;
+}
+
+/* ---------------- 記一筆（新增 / 編輯） ---------------- */
+const weightIds = (L, e) => expenseWeights(e, new Set(L.members.map(m => m.id))).filter(([, w]) => w > 0n).map(([id]) => id);
+function openExpense(id) {
+  const L = cur(); if (!L || readonly()) return;
+  if (!L.members.length) { toast('請先新增成員'); goMembers(); return; }
+  const ex = id ? L.expenses.find(e => e.id === id) : null;
+  const all = L.members.map(m => m.id);
+  const curOk = c => c === L.mainCurrency || L.currencies.some(x => x.code === c);
+  const exIds = ex ? weightIds(L, ex) : all;
+  const ed = {
+    id: ex?.id || null, tmpId: ex?.id || uid(),
+    title: ex?.title || '', amountStr: ex ? centsToStr(ex.amount) : '',
+    currency: ex ? ex.currency : (curOk(ui.lastCurrency) ? ui.lastCurrency : L.mainCurrency),
+    payer: ex?.payer && all.includes(ex.payer) ? ex.payer : (L.me && all.includes(L.me) ? L.me : all[0]),
+    date: ex?.date || today(), mode: ex?.mode || 'equal',
+    participants: new Set(ex?.mode === 'equal' ? ex.participants.filter(x => all.includes(x)) : exIds),
+    shares: Object.fromEntries(all.map(i => [i, ex?.mode === 'shares' ? (ex.shares[i] ?? '0') : (exIds.includes(i) ? '1' : '0')])),
+    items: Object.fromEntries(all.map(i => [i, ex?.mode === 'itemized' && ex.items[i] ? centsToStr(ex.items[i]) : ''])),
+    service: ex?.service || '', discount: ex?.discount ? centsToStr(ex.discount) : '',
+    note: ex?.note || '', amountTouched: !!ex
+  };
+  if (ex?.mode === 'itemized') ed.amountTouched = ex.amount !== itemCalc(ex).calc;
+  const curs = [L.mainCurrency, ...L.currencies.map(c => c.code)];
+  if (!curs.includes(ed.currency)) curs.push(ed.currency);
+  openSheet(`
+    <div class="sheet-head"><button type="button" class="link-btn" data-act="sheet-close">取消</button><b>${ex ? '編輯消費' : '記一筆'}</b><span style="width:44px"></span></div>
+    <div class="sheet-body">
+      <label class="field"><span>項目名稱</span><input class="input" id="f-title" maxlength="60" placeholder="例如：燒肉晚餐" value="${esc(ed.title)}" enterkeyhint="next" autocomplete="off"></label>
+      <div class="amt-row">
+        <label class="field grow"><span>總金額</span><input class="input big" id="f-amount" inputmode="decimal" placeholder="0" value="${esc(ed.amountStr)}" enterkeyhint="done" autocomplete="off"></label>
+        <label class="field cur"><span>幣別</span><select class="input" id="f-cur">${curs.map(c => `<option value="${c}" ${c === ed.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      </div>
+      <div class="conv" id="f-conv" hidden></div>
+      <div class="field"><span>誰先付錢</span><div class="chips">${L.members.map(m => `<button type="button" class="chip-btn${m.id === ed.payer ? ' on' : ''}" data-payer="${m.id}">${esc(m.name)}</button>`).join('')}</div></div>
+      <label class="field"><span>日期</span><input class="input" type="date" id="f-date" value="${ed.date}"></label>
+      <div class="field"><span>分攤方式</span><div class="seg">${[['equal', '均分'], ['shares', '比例／份數'], ['itemized', '各自點單']].map(([k, t]) => `<button type="button" data-mode="${k}" class="${ed.mode === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+      <div id="f-split"></div>
+      <label class="field" style="margin-top:14px"><span>備註（選填）</span><input class="input" id="f-note" maxlength="200" value="${esc(ed.note)}" autocomplete="off"></label>
+      ${ex ? `<button type="button" class="btn block danger" data-del>刪除這筆消費</button>` : ''}
+    </div>
+    <div class="sheet-foot"><button type="button" class="btn primary block lg" data-save>${ex ? '儲存修改' : '記下這筆'}</button></div>`,
+    { tall: true, onMount: el => mountExpense(el, L, ed, ex) });
+}
+function splitHTML(L, ed) {
+  const C = ed.currency;
+  if (ed.mode === 'shares') {
+    return `<div class="split-tools"><span class="muted" style="font-size:13px;font-weight:600">0 份＝不參加，可輸入 1.5 這類小數</span><span class="sum" id="f-sum"></span></div>` +
+      L.members.map(m => `<div class="prow"><span class="pname">${esc(m.name)}</span>
+        <div class="stepper"><button type="button" data-step="-" data-id="${m.id}" aria-label="減少">−</button><input inputmode="decimal" data-share="${m.id}" value="${esc(ed.shares[m.id])}" aria-label="${esc(m.name)} 份數" autocomplete="off"><button type="button" data-step="+" data-id="${m.id}" aria-label="增加">＋</button></div>
+        <span class="pamt" data-pv="${m.id}"></span></div>`).join('');
+  }
+  if (ed.mode === 'itemized') {
+    return `<div class="split-tools"><span class="muted" style="font-size:13px;font-weight:600">輸入每人點餐金額（${C}），沒點的留空</span></div>` +
+      L.members.map(m => `<div class="prow"><span class="pname">${esc(m.name)}</span><input class="input item-in" inputmode="decimal" data-item="${m.id}" value="${esc(ed.items[m.id])}" placeholder="0" aria-label="${esc(m.name)} 點餐金額" autocomplete="off"><span class="pamt" data-pv="${m.id}"></span></div>`).join('') +
+      `<div class="calc"><h3>🧮 服務費／折扣快速計算</h3>
+        <div class="calc-grid">
+          <label><span>服務費</span><div class="suffix"><input class="input" inputmode="decimal" id="f-service" value="${esc(ed.service)}" placeholder="0" autocomplete="off"><em>%</em></div></label>
+          <label><span>固定折扣／折抵</span><div class="suffix"><input class="input" inputmode="decimal" id="f-discount" value="${esc(ed.discount)}" placeholder="0" autocomplete="off"><em>${esc(C)}</em></div></label>
+        </div>
+        <div class="calc-lines num" id="f-calc"></div>
+        <div id="f-status"></div>
+        <p class="hint">服務費與折扣會依每人原始點餐金額的佔比分配；右側是換算成 ${L.mainCurrency} 後每人實際要付的金額。</p></div>`;
+  }
+  return `<div class="split-tools"><button type="button" class="btn sm" data-all>全選</button><button type="button" class="btn sm" data-none>全不選</button><span class="sum" id="f-sum"></span></div>` +
+    L.members.map(m => { const on = ed.participants.has(m.id); return `<button type="button" class="prow${on ? ' on' : ''}" data-toggle="${m.id}" aria-pressed="${on}"><span class="check"></span><span class="pname">${esc(m.name)}</span><span class="pamt" data-pv="${m.id}"></span></button>`; }).join('');
+}
+function edToExpense(L, ed) {
+  const amount = parseCents(ed.amountStr);
+  const e = { id: ed.tmpId, title: ed.title.trim() || '未命名消費', amount: amount ?? 0, currency: ed.currency, payer: ed.payer, date: ed.date || today(), mode: ed.mode, participants: [], shares: {}, items: {}, service: '', discount: 0, note: ed.note.trim(), createdAt: 0, updatedAt: 0 };
+  const order = L.members.map(m => m.id);
+  if (ed.mode === 'equal') e.participants = order.filter(id => ed.participants.has(id));
+  else if (ed.mode === 'shares') { for (const id of order) { const v = parseScaled(ed.shares[id], 3); if (v && v > 0n) e.shares[id] = scaledToStr(v, 3); } }
+  else {
+    for (const id of order) { const c = parseCents(ed.items[id]); if (c && c > 0) e.items[id] = c; }
+    const s = parseScaled(ed.service, 2); e.service = s && s > 0n ? scaledToStr(s, 2) : '';
+    e.discount = parseCents(ed.discount) || 0;
+  }
+  return { e, amountValid: amount != null && amount > 0 };
+}
+function mountExpense(el, L, ed, ex) {
+  const update = () => updateExpensePreview(el, L, ed);
+  const renderSplit = () => { $('#f-split', el).innerHTML = splitHTML(L, ed); update(); };
+  el.addEventListener('input', e => {
+    const t = e.target;
+    if (t.id === 'f-title') ed.title = t.value;
+    else if (t.id === 'f-note') ed.note = t.value;
+    else if (t.id === 'f-amount') { ed.amountStr = t.value; ed.amountTouched = t.value.trim() !== ''; update(); }
+    else if (t.dataset.share) { ed.shares[t.dataset.share] = t.value; update(); }
+    else if (t.dataset.item) { ed.items[t.dataset.item] = t.value; update(); }
+    else if (t.id === 'f-service') { ed.service = t.value; update(); }
+    else if (t.id === 'f-discount') { ed.discount = t.value; update(); }
+  });
+  el.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'f-cur') { ed.currency = t.value; ui.lastCurrency = t.value; renderSplit(); }
+    else if (t.id === 'f-date') ed.date = t.value;
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing && e.target.id === 'f-title') { e.preventDefault(); $('#f-amount', el).focus(); }
+  });
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !el.contains(b)) return;
+    const d = b.dataset;
+    if (d.payer) { ed.payer = d.payer; $$('[data-payer]', el).forEach(x => x.classList.toggle('on', x === b)); }
+    else if (d.mode) {
+      if (d.mode === ed.mode) return;
+      ed.mode = d.mode; $$('[data-mode]', el).forEach(x => x.classList.toggle('on', x === b));
+      if (ed.mode === 'itemized') ed.amountTouched = ed.amountStr.trim() !== '';
+      renderSplit();
+    }
+    else if (d.toggle) { const on = !ed.participants.has(d.toggle); on ? ed.participants.add(d.toggle) : ed.participants.delete(d.toggle); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); update(); }
+    else if ('all' in d) { L.members.forEach(m => ed.participants.add(m.id)); renderSplit(); }
+    else if ('none' in d) { ed.participants.clear(); renderSplit(); }
+    else if (d.step) {
+      const v = parseScaled(ed.shares[d.id], 3) || 0n;
+      let nv = d.step === '+' ? v + 500n : v - 500n; if (nv < 0n) nv = 0n;
+      if (d.step === '+' && v % 500n) nv = v + (500n - v % 500n); // 1.2 → 1.5
+      if (d.step === '-' && v % 500n) nv = v - v % 500n;           // 1.2 → 1
+      ed.shares[d.id] = scaledToStr(nv, 3); $(`[data-share="${d.id}"]`, el).value = ed.shares[d.id]; update();
+    }
+    else if ('usecalc' in d) { ed.amountTouched = false; update(); }
+    else if ('save' in d) saveExpense(L, ed, el);
+    else if ('del' in d) deleteExpenseFlow(L, ex);
+  });
+  renderSplit();
+}
+function updateExpensePreview(el, L, ed) {
+  if (ed.mode === 'itemized' && !ed.amountTouched) {
+    const ic = itemCalc(edToExpense(L, ed).e);
+    ed.amountStr = ic.subtotal > 0 ? centsToStr(ic.calc) : '';
+    const a = $('#f-amount', el); if (a) a.value = ed.amountStr;
+  }
+  const { e } = edToExpense(L, ed);
+  const r = computeExpense(L, e);
+  const C = L.mainCurrency;
+  const conv = $('#f-conv', el);
+  if (e.currency !== C) {
+    conv.hidden = false;
+    conv.innerHTML = r.main == null ? `<span class="warn-txt">⚠ 還沒設定 ${e.currency} 的匯率，請先到「成員與設定」填寫</span>`
+      : `≈ ${money(r.main, C)}　<span class="muted">1 ${e.currency} = ${esc(rateOf(L, e.currency))} ${C}</span>`;
+  } else conv.hidden = true;
+  for (const m of L.members) { const sp = $(`[data-pv="${m.id}"]`, el); if (sp) { const v = r.shares?.[m.id]; sp.textContent = v != null ? money(v, C) : '—'; } }
+  const sum = $('#f-sum', el);
+  if (sum) {
+    if (ed.mode === 'equal') {
+      const n = e.participants.length;
+      if (!n) sum.textContent = '尚未選擇';
+      else if (r.shares) { const vals = Object.values(r.shares); const mn = Math.min(...vals), mx = Math.max(...vals); sum.textContent = `${n} 人 · 每人 ${mn === mx ? money(mn, C) : money(mn, C) + '～' + fmtAmt(mx, 'trim')}`; }
+      else sum.textContent = `${n} 人`;
+    } else {
+      const tot = Object.values(e.shares).reduce((a, s) => a + (parseScaled(s, 3) || 0n), 0n);
+      sum.textContent = tot ? `共 ${scaledToStr(tot, 3)} 份${r.main ? ' · 每份約 ' + money(Number(divRound(BigInt(r.main) * 1000n, tot)), C) : ''}` : '尚未設定份數';
+    }
+  }
+  if (ed.mode === 'itemized') {
+    const ic = itemCalc(e), X = e.currency;
+    $('#f-calc', el).innerHTML = `<div><span>點餐小計</span><span>${money(ic.subtotal, X)}</span></div>
+      ${ic.svc ? `<div><span>＋ 服務費 ${esc(e.service)}%</span><span>${money(ic.svc, X)}</span></div>` : ''}
+      ${ic.disc ? `<div><span>－ 折扣／折抵</span><span>−${money(ic.disc, X)}</span></div>` : ''}
+      <div class="tot"><span>計算應付</span><span>${money(ic.calc, X)}</span></div>
+      <div><span>帳單總金額</span><span>${money(e.amount, X)}</span></div>`;
+    const diff = e.amount - ic.calc;
+    const st = $('#f-status', el);
+    if (!ic.subtotal) st.innerHTML = `<div class="status bad">請輸入至少一位成員的點餐金額</div>`;
+    else if (diff === 0) st.innerHTML = `<div class="status ok">✓ 金額已全部分配完畢</div>`;
+    else st.innerHTML = `<div class="status bad">${diff > 0 ? `還有 ${money(diff, X)} 沒有對應到任何人的點餐` : `點餐加總比帳單多了 ${money(-diff, X)}`}，儲存時會依點餐比例${diff > 0 ? '分攤' : '扣回'}。
+      <button type="button" class="btn sm block" data-usecalc>改用計算應付 ${money(ic.calc, X)} 作為總金額</button></div>`;
+  }
+}
+function saveExpense(L, ed, el) {
+  const { e, amountValid } = edToExpense(L, ed);
+  if (!amountValid) { toast('請輸入金額'); $('#f-amount', el).focus(); return; }
+  if (!L.members.some(m => m.id === e.payer)) { toast('請選擇誰先付錢'); return; }
+  const r = computeExpense(L, e);
+  if (r.main == null) { toast(`請先到設定填入 ${e.currency} 的匯率`); return; }
+  if (!r.shares) { toast(ed.mode === 'itemized' ? '請至少輸入一位成員的點餐金額' : ed.mode === 'shares' ? '請至少給一位成員 1 份以上' : '請至少選一位分攤成員'); return; }
+  const old = ed.id ? L.expenses.find(x => x.id === ed.id) : null;
+  e.createdAt = old?.createdAt || Date.now(); e.updatedAt = Date.now();
+  mutate(L, L => { const i = L.expenses.findIndex(x => x.id === e.id); if (i >= 0) L.expenses[i] = e; else L.expenses.push(e); },
+    (f, ref) => f.setDoc(f.doc(ref, 'expenses', e.id), expDoc(e)));
+  ui.lastCurrency = e.currency;
+  closeSheet(); toast(old ? '已更新' : '已記下 ✓');
+}
+async function deleteExpenseFlow(L, ex) {
+  if (!ex) return;
+  if (!await ask({ title: '刪除這筆消費？', msg: `「${esc(ex.title)}」刪除後無法復原。`, ok: '刪除', danger: true })) return;
+  mutate(L, L => { L.expenses = L.expenses.filter(x => x.id !== ex.id); }, (f, ref) => f.deleteDoc(f.doc(ref, 'expenses', ex.id)));
+  closeSheet(); toast('已刪除');
+}
+
+/* ---------------- 成員與幣別 ---------------- */
+function goMembers() { ui.tab = 'settings'; render(); setTimeout(() => { const i = $('#add-member-input'); i?.scrollIntoView({ block: 'center' }); i?.focus(); }, 60); }
+function addMembers(L, text) {
+  const names = text.split(/[,，、;；\n]+/).map(s => s.trim()).filter(Boolean);
+  if (!names.length) return false;
+  const exist = new Set(L.members.map(m => m.name)); const add = [];
+  for (const n of names) {
+    const name = n.slice(0, 20);
+    if (exist.has(name)) { toast(`「${name}」已經在名單裡`); continue; }
+    exist.add(name); add.push({ id: uid(), name, createdAt: Date.now() + add.length });
+  }
+  if (!add.length) return false;
+  mutate(L, L => { L.members.push(...add); }, (f, ref) => { const b = f.writeBatch(f.db); add.forEach(m => b.set(f.doc(ref, 'members', m.id), { name: m.name, createdAt: m.createdAt })); return b.commit(); });
+  return true;
+}
+function memberUsage(L, id) { const s = new Set([id]); return L.expenses.filter(e => e.payer === id || expenseWeights(e, s).some(([, w]) => w > 0n)); }
+async function deleteMember(L, id) {
+  const m = L.members.find(x => x.id === id); if (!m) return;
+  const used = memberUsage(L, id);
+  if (used.length) {
+    await ask({
+      title: `無法刪除「${m.name}」`, cancel: null, ok: '知道了',
+      msg: `${esc(m.name)} 已經有 ${used.length} 筆付款或分攤紀錄，直接刪除會讓帳目對不起來。請先修改或刪除下列消費，或改用改名：</p><ul>${used.slice(0, 6).map(e => `<li>${esc(e.title)}</li>`).join('')}${used.length > 6 ? `<li>…等 ${used.length} 筆</li>` : ''}</ul><p style="margin:0">`
+    });
+    return;
+  }
+  if (!await ask({ title: `刪除「${m.name}」？`, ok: '刪除', danger: true })) return;
+  mutate(L, L => {
+    L.members = L.members.filter(x => x.id !== id);
+    for (const e of L.expenses) { e.participants = e.participants.filter(x => x !== id); delete e.shares[id]; delete e.items[id]; }
+    if (L.me === id) L.me = null;
+  }, (f, ref) => f.deleteDoc(f.doc(ref, 'members', id)));
+}
+function microToStr(v) { return scaledToStr(v, 6); }
+function changeMainCurrency(L, B) {
+  const A = L.mainCurrency; if (A === B) return;
+  const rB = parseScaled(L.currencies.find(c => c.code === B)?.rate, 6);
+  let list = L.currencies.filter(c => c.code !== B);
+  if (rB && rB > 0n) {
+    list = list.map(c => { const v = parseScaled(c.rate, 6); return { code: c.code, rate: v ? microToStr(divRound(v * 1000000n, rB)) : c.rate }; });
+    list.unshift({ code: A, rate: microToStr(divRound(1000000n * 1000000n, rB)) });
+  } else if (L.expenses.some(e => e.currency === A) || list.length) list.unshift({ code: A, rate: '' });
+  L.mainCurrency = B; L.currencies = list.filter(c => c.code !== B);
+}
+const metaPatch = L => ({ name: L.name, mainCurrency: L.mainCurrency, currencies: L.currencies, rounding: L.rounding, updatedAt: Date.now() });
+const metaOp = L => (f, ref) => f.updateDoc(ref, metaPatch(L));
+
+/* ---------------- 文字報告 ---------------- */
+function buildReport(L, stats, v) {
+  const C = L.mainCurrency, M = v.mode, f = c => money(c, C, M);
+  const lines = [`🧾 ${L.name}｜分帳結算`, `總花費：${f(v.total)}（${L.members.length} 人・${L.expenses.length} 筆）`];
+  if (dateRange(L)) lines.push(`期間：${dateRange(L)}`);
+  lines.push('', '【每人收支】');
+  for (const m of L.members) {
+    const n = v.net[m.id];
+    lines.push(`・${m.name}：墊付 ${fmtAmt(v.paid[m.id], M)}／應付 ${fmtAmt(v.owed[m.id], M)}　${n > 0 ? '👉 應收 ' + fmtAmt(n, M) : n < 0 ? '👉 應付 ' + fmtAmt(-n, M) : '✅ 已打平'}`);
+  }
+  lines.push('', '【轉帳清單】');
+  if (!v.transfers.length) lines.push('🎉 大家已經互不相欠');
+  v.transfers.forEach((t, i) => lines.push(`${i + 1}. ${memberName(L, t.from)} ➜ ${memberName(L, t.to)}　${f(t.amount)}${L.settled[t.key] ? '（已結清）' : ''}`));
+  const p = store.profile;
+  if (p.attach && (p.bankAccount || '').trim()) {
+    lines.push('', '【收款資訊】');
+    if (p.accountName) lines.push(`戶名：${p.accountName}`);
+    if (p.bankCode) lines.push(`銀行代碼：${p.bankCode}`);
+    lines.push('帳號：', String(p.bankAccount).replace(/\s/g, ''));
+  }
+  if (M === 'integer') lines.push('', '※ 金額已四捨五入到整數，尾差已自動平衡');
+  if (ui.attachLink && ui.share.url) lines.push('', '完整明細：', ui.share.url);
+  return lines.join('\n');
+}
+
+/* ---------------- 收據風格結算圖片（Canvas 直接繪製，不需外部套件） ---------------- */
+function receiptCanvas(L, v) {
+  const W = 420, S = 3, M = 18, P = 26, X0 = M + P, X1 = W - M - P, IW = X1 - X0;
+  const FF = '-apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Helvetica Neue", Arial, sans-serif';
+  const F = (w, s) => `${w} ${s}px ${FF}`;
+  const INK = '#0b1220', MUTED = '#6b7280', LINE = '#d5d9e0', POS = '#047a4c', NEG = '#c23b0b', ACC = '#3b2fd9';
+  const C = L.mainCurrency, MD = v.mode;
+  const p = store.profile, bank = p.attach && (p.bankAccount || '').trim();
+  const fit = (ctx, t, w) => { t = String(t); if (ctx.measureText(t).width <= w) return t; while (t.length > 1 && ctx.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; };
+  const wrap = (ctx, t, w) => { const out = []; let line = ''; for (const ch of Array.from(t)) { if (line && ctx.measureText(line + ch).width > w) { out.push(line); line = ch; } else line += ch; } if (line) out.push(line); return out.slice(0, 3); };
+  const paperPath = (ctx, H) => {
+    const top = M, bot = H - M, r = 14, z = 8, n = Math.round((W - 2 * M) / 14), zw = (W - 2 * M) / n;
+    ctx.beginPath(); ctx.moveTo(M, bot - z); ctx.lineTo(M, top + r); ctx.arcTo(M, top, M + r, top, r);
+    ctx.lineTo(W - M - r, top); ctx.arcTo(W - M, top, W - M, top + r, r); ctx.lineTo(W - M, bot - z);
+    for (let i = 0; i < n; i++) { const x = W - M - i * zw; ctx.lineTo(x - zw / 2, bot); ctx.lineTo(x - zw, bot - z); }
+    ctx.closePath();
+  };
+  function paint(ctx, H) {
+    const real = H > 0;
+    const txt = (t, x, y, font, color, align = 'left') => { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; if (real) ctx.fillText(t, x, y); };
+    const dash = y => { if (!real) return; ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = LINE; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X0, y); ctx.lineTo(X1, y); ctx.stroke(); ctx.restore(); };
+    ctx.textBaseline = 'alphabetic';
+    if (real) {
+      ctx.fillStyle = '#e9ebf1'; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.shadowColor = 'rgba(15,23,42,.14)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6; ctx.fillStyle = '#fff'; paperPath(ctx, H); ctx.fill(); ctx.restore();
+      ctx.save(); paperPath(ctx, H); ctx.clip(); ctx.fillStyle = ACC; ctx.fillRect(0, M, W, 7); ctx.restore();
+    }
+    let y = M + P + 18;
+    txt('SETTLEMENT · 分帳結算', X0, y, F(800, 11), ACC); y += 30;
+    ctx.font = F(800, 23);
+    for (const line of wrap(ctx, L.name, IW)) { txt(line, X0, y, F(800, 23), INK); y += 30; }
+    const sub = [dateRange(L), `${L.members.length} 人`, `${L.expenses.length} 筆消費`].filter(Boolean).join(' · ');
+    txt(sub, X0, y - 4, F(500, 12.5), MUTED); y += 18;
+    dash(y); y += 34;
+    txt('總花費', X0, y - 4, F(700, 13), MUTED);
+    txt(money(v.total, C, MD), X1, y, F(800, 27), INK, 'right'); y += 22;
+    dash(y); y += 30;
+
+    txt('每人收支', X0, y, F(800, 14), INK); y += 24;
+    const cP = X1 - 168, cO = X1 - 86;
+    txt('成員', X0, y, F(700, 11), MUTED); txt('墊付', cP, y, F(700, 11), MUTED, 'right'); txt('應付', cO, y, F(700, 11), MUTED, 'right'); txt('淨額', X1, y, F(700, 11), MUTED, 'right');
+    y += 8;
+    for (const m of L.members) {
+      y += 24;
+      ctx.font = F(700, 13.5);
+      txt(fit(ctx, m.name + (m.id === L.me ? '（我）' : ''), cP - X0 - 74), X0, y, F(700, 13.5), INK);
+      txt(fmtAmt(v.paid[m.id], MD), cP, y, F(500, 13.5), INK, 'right');
+      txt(fmtAmt(v.owed[m.id], MD), cO, y, F(500, 13.5), INK, 'right');
+      const n = v.net[m.id];
+      txt(n === 0 ? '0' : (n > 0 ? '+' : '−') + fmtAmt(Math.abs(n), MD), X1, y, F(800, 13.5), n > 0 ? POS : n < 0 ? NEG : MUTED, 'right');
+    }
+    y += 20; dash(y); y += 30;
+
+    txt('轉帳建議', X0, y, F(800, 14), INK);
+    if (v.transfers.length) txt(`共 ${v.transfers.length} 筆`, X1, y, F(600, 12), MUTED, 'right');
+    y += 8;
+    if (!v.transfers.length) { y += 30; txt('🎉 大家已經互不相欠', W / 2, y, F(700, 14), MUTED, 'center'); y += 6; }
+    for (const t of v.transfers) {
+      y += 32;
+      const done = !!L.settled[t.key];
+      const amt = money(t.amount, C, MD);
+      ctx.font = F(800, 16); const aw = ctx.measureText(amt).width;
+      ctx.font = F(700, 14.5);
+      const who = fit(ctx, `${memberName(L, t.from)}  →  ${memberName(L, t.to)}`, IW - aw - (done ? 70 : 16));
+      txt(who, X0, y, F(700, 14.5), done ? MUTED : INK);
+      txt(amt, X1, y, F(800, 16), done ? MUTED : INK, 'right');
+      if (done) {
+        if (real) { ctx.strokeStyle = MUTED; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(X1 - aw, y - 5); ctx.lineTo(X1, y - 5); ctx.stroke(); }
+        txt('✓ 已結清', X1 - aw - 10, y - 1, F(700, 11), POS, 'right');
+      }
+    }
+    y += 22;
+
+    if (bank) {
+      const rows = [p.accountName && ['戶名', p.accountName], p.bankCode && ['銀行代碼', p.bankCode]].filter(Boolean);
+      const bh = 40 + rows.length * 22 + 34;
+      if (real) { ctx.fillStyle = '#f3f4f8'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(X0, y, IW, bh, 12) : ctx.rect(X0, y, IW, bh); ctx.fill(); }
+      let by = y + 26;
+      txt('收款資訊', X0 + 14, by, F(800, 12.5), ACC);
+      for (const [k, val] of rows) { by += 22; txt(k, X0 + 14, by, F(600, 13), MUTED); ctx.font = F(700, 13.5); txt(fit(ctx, val, IW - 110), X0 + 90, by, F(700, 13.5), INK); }
+      by += 30; txt('帳號', X0 + 14, by, F(600, 13), MUTED);
+      txt(String(p.bankAccount).replace(/\s/g, ''), X0 + 90, by, F(800, 17), INK);
+      y += bh + 20;
+    }
+    dash(y); y += 24;
+    const now = new Date();
+    txt(`${MD === 'integer' ? '金額已四捨五入到整數，尾差已自動平衡 · ' : ''}${ymd(now).replace(/-/g, '/')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, W / 2, y, F(500, 11), MUTED, 'center');
+    y += 18; txt(`由「${APP_NAME}」產生`, W / 2, y, F(600, 11), '#9aa1ad', 'center');
+    return y + P + 10;
+  }
+  const H = Math.ceil(paint(document.createElement('canvas').getContext('2d'), 0));
+  const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S;
+  const ctx = cv.getContext('2d'); ctx.scale(S, S); paint(ctx, H);
+  return cv;
+}
+function showReceipt(L, stats, v) {
+  const area = $('#img-area'); if (!area) return;
+  const key = `${L.id}:${L.updatedAt}:${v.mode}:${store.profile.attach}`;
+  if (!ui.receipt || ui.receipt.key !== key) {
+    const cv = receiptCanvas(L, v);
+    ui.receipt = { key, url: cv.toDataURL('image/png'), cv };
+  }
+  const fname = `${L.name.replace(/[\\/:*?"<>|\s]+/g, '_')}_結算.png`;
+  const canShare = !!(navigator.canShare && window.File && navigator.canShare({ files: [new File([new Blob()], 'a.png', { type: 'image/png' })] }));
+  area.innerHTML = `<img class="receipt-img" src="${ui.receipt.url}" alt="${esc(L.name)} 結算摘要圖片">
+    <p class="img-hint">📱 iPhone／LINE 內建瀏覽器：長按圖片即可「儲存」或「分享」</p>
+    <div class="btn-grid"><a class="btn" href="${ui.receipt.url}" download="${esc(fname)}">下載圖片</a>${canShare ? `<button type="button" class="btn" data-act="share-image">分享圖片…</button>` : `<button type="button" class="btn" data-act="hide-image">收起圖片</button>`}</div>`;
+}
+
+/* ---------------- 範例帳本 ---------------- */
+function sampleLedger() {
+  const L = newLedger('東京五日遊（範例）');
+  L.currencies = [{ code: 'JPY', rate: '0.2135' }, { code: 'USD', rate: '32.4' }];
+  L.members = ['小明', '小華', '阿美', '大雄'].map((name, i) => ({ id: uid(), name, createdAt: Date.now() + i }));
+  const [a, b, c, d] = L.members.map(m => m.id), all = [a, b, c, d];
+  const day = k => { const t = new Date(); t.setDate(t.getDate() - 4 + k); return ymd(t); };
+  let n = 0;
+  const E = o => ({ id: uid(), title: '', amount: 0, currency: 'TWD', payer: a, date: day(0), mode: 'equal', participants: all, shares: {}, items: {}, service: '', discount: 0, note: '', createdAt: Date.now() + (n++), updatedAt: 0, ...o });
+  L.expenses = [
+    E({ title: '桃園 ⇄ 成田 來回機票', amount: 3280000, payer: a, date: day(0) }),
+    E({ title: '新宿飯店 4 晚', amount: 9600000, currency: 'JPY', payer: b, date: day(0) }),
+    E({ title: '燒肉晚餐', amount: 2860000, currency: 'JPY', payer: c, date: day(1), mode: 'shares', participants: [], shares: { [a]: '1', [b]: '1.5', [c]: '1', [d]: '1.5' }, note: '小華、大雄多點了啤酒' }),
+    E({ title: 'Suica 交通卡儲值', amount: 1200000, currency: 'JPY', payer: a, date: day(1), participants: [a, b, c], note: '大雄自己有卡' }),
+    E({ title: '樂園門票', amount: 43600, currency: 'USD', payer: c, date: day(2), note: '官網刷卡，用美金計價' }),
+    E({ title: '居酒屋', amount: 1496000, currency: 'JPY', payer: d, date: day(3), mode: 'itemized', participants: [], items: { [a]: 320000, [b]: 410000, [c]: 280000, [d]: 350000 }, service: '10', note: '含 10% 服務費' }),
+    E({ title: '回台灣後的外送宵夜', amount: 65000, payer: b, date: day(4), mode: 'itemized', participants: [], items: { [a]: 18000, [b]: 22000, [c]: 15000, [d]: 25000 }, discount: 15000, note: '外送平台折抵 150 元' })
+  ];
+  return normalizeLedger(L);
+}
+
+/* ---------------- 備份 ---------------- */
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function exportBackup() {
+  const data = { app: 'splitbill', v: 1, exportedAt: new Date().toISOString(), ledgers: store.ledgers, order: store.order, profile: store.profile };
+  const name = `分帳備份_${ymd(new Date()).replace(/-/g, '')}.json`;
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const file = window.File ? new File([blob], name, { type: 'application/json' }) : null;
+  const ua = navigator.userAgent;
+  if (/Line\//i.test(ua) && file && navigator.canShare?.({ files: [file] })) { navigator.share({ files: [file] }).catch(() => downloadBlob(blob, name)); return; }
+  downloadBlob(blob, name);
+  toast(`已匯出 ${store.order.length} 本帳本`);
+}
+function importBackup() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json'; inp.style.display = 'none';
+  document.body.appendChild(inp);
+  inp.onchange = async () => {
+    const file = inp.files[0]; inp.remove(); if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const list = (data?.ledgers ? Object.values(data.ledgers) : Array.isArray(data) ? data : []).filter(l => l && l.id).map(normalizeLedger);
+      if (!list.length) throw new Error('empty');
+      const dup = list.filter(l => store.ledgers[l.id]).length;
+      if (!await ask({ title: `匯入 ${list.length} 本帳本？`, msg: dup ? `其中 ${dup} 本和現有帳本相同，會被備份檔的內容覆蓋。` : '', ok: '匯入' })) return;
+      for (const l of list.reverse()) { if (!store.ledgers[l.id]) store.order.unshift(l.id); store.ledgers[l.id] = l; }
+      if (data.profile && !store.profile.bankAccount) store.profile = { ...store.profile, ...data.profile };
+      ui.shared = null; switchLedger(list.at(-1).id); toast('匯入完成');
+    } catch (e) { toast('這不是有效的備份檔'); }
+  };
+  inp.click();
+}
+function switchLedger(id) {
+  if (ui.shared) { ui.shared = null; clearHash(); }
+  store.currentId = id; saveStore(); ui.receipt = null;
+  const L = store.ledgers[id];
+  if (!L?.room || ui.conn?.ledgerId !== id) disconnectRoom();
+  if (L?.room) connectRoom(L);
+  render(); window.scrollTo(0, 0);
+}
+function clearHash() { if (location.hash) history.replaceState(null, '', location.pathname + location.search); }
+
+/* ---------------- Firebase 多人即時房間（選用） ---------------- */
+let fbPromise = null;
+function getFirebase() {
+  if (!FIREBASE_CONFIG) return Promise.reject(new Error('尚未設定 Firebase'));
+  if (!fbPromise) fbPromise = (async () => {
+    const [appMod, fs] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js`)
+    ]);
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    return { ...fs, db: fs.getFirestore(app) };
+  })().catch(e => { fbPromise = null; throw e; });
+  return fbPromise;
+}
+function expDoc(e) {
+  return { title: e.title, amount: e.amount, currency: e.currency, payer: e.payer, date: e.date, mode: e.mode, participants: e.participants || [], shares: e.shares || {}, items: e.items || {}, service: e.service || '', discount: e.discount || 0, note: e.note || '', createdAt: e.createdAt || Date.now(), updatedAt: Date.now() };
+}
+function remote(L, op) {
+  if (!L.room || !FIREBASE_CONFIG) return;
+  getFirebase().then(f => op(f, f.doc(f.db, 'rooms', L.room.id))).catch(e => { console.error(e); toast('雲端同步失敗：' + (e.code || e.message)); });
+}
+function setSync(status, msg = '') { ui.sync = { status, msg }; renderHeader(cur()); }
+function disconnectRoom() { if (ui.conn) { ui.conn.unsubs.forEach(u => { try { u(); } catch (e) { } }); ui.conn = null; } ui.sync = { status: 'off', msg: '' }; }
+async function connectRoom(L) {
+  if (!L?.room || !FIREBASE_CONFIG) return;
+  if (ui.conn?.roomId === L.room.id) return;
+  disconnectRoom();
+  const conn = { roomId: L.room.id, ledgerId: L.id, unsubs: [], loaded: { room: false, members: false, expenses: false }, prompted: false };
+  ui.conn = conn; setSync('connecting');
+  let f;
+  try { f = await getFirebase(); } catch (e) { if (ui.conn === conn) setSync('error', '無法載入 Firebase，請檢查網路'); return; }
+  if (ui.conn !== conn) return;
+  const ref = f.doc(f.db, 'rooms', conn.roomId);
+  const target = () => store.ledgers[conn.ledgerId];
+  const onErr = e => { console.error(e); setSync('error', e.code === 'permission-denied' ? '沒有讀取權限，請檢查 Firestore 安全規則' : (e.message || '連線錯誤')); };
+  const after = () => {
+    const L = target(); if (!L) return;
+    L.updatedAt = Date.now(); saveStore(); scheduleRender();
+    const ld = conn.loaded;
+    if (ld.room && ld.members && ld.expenses && !conn.prompted) {
+      conn.prompted = true;
+      if ((!L.me || !L.members.some(m => m.id === L.me)) && store.currentId === L.id && !ui.shared) setTimeout(() => openJoin(L), 200);
+    }
+  };
+  conn.unsubs.push(f.onSnapshot(ref, { includeMetadataChanges: true }, snap => {
+    const L = target(); if (!L) return;
+    if (!snap.exists()) { if (!snap.metadata.fromCache) roomMissing(L, conn); return; }
+    const d = snap.data();
+    L.name = String(d.name || '未命名帳本'); L.mainCurrency = d.mainCurrency || 'TWD';
+    L.currencies = Array.isArray(d.currencies) ? d.currencies.map(c => ({ code: c.code, rate: String(c.rate ?? '') })) : [];
+    L.rounding = d.rounding === 'decimal' ? 'decimal' : 'integer'; L.settled = d.settled || {};
+    conn.loaded.room = true; setSync(snap.metadata.fromCache ? 'offline' : 'live', snap.metadata.fromCache ? '目前離線，修改會在恢復連線後同步' : '');
+    after();
+  }, onErr));
+  conn.unsubs.push(f.onSnapshot(f.collection(ref, 'members'), qs => {
+    const L = target(); if (!L) return;
+    L.members = qs.docs.map(x => ({ id: x.id, name: String(x.data().name || '成員'), createdAt: +x.data().createdAt || 0 })).sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1));
+    conn.loaded.members = true; after();
+  }, onErr));
+  conn.unsubs.push(f.onSnapshot(f.collection(ref, 'expenses'), qs => {
+    const L = target(); if (!L) return;
+    L.expenses = qs.docs.map(x => normalizeExpense({ id: x.id, ...x.data() }));
+    conn.loaded.expenses = true; after();
+  }, onErr));
+}
+async function roomMissing(L, conn) {
+  if (ui.conn !== conn) return;
+  disconnectRoom();
+  const empty = !L.members.length && !L.expenses.length;
+  if (empty) { delete store.ledgers[L.id]; store.order = store.order.filter(x => x !== L.id); store.currentId = store.order[0] || null; }
+  else L.room = null;
+  saveStore(); render();
+  await ask({ title: '找不到這個房間', msg: empty ? '邀請連結可能不完整，或房間已被刪除。' : '雲端房間已不存在，這本帳本已改為只存在這台裝置。', cancel: null, ok: '知道了' });
+}
+async function createRoom(L) {
+  if (!await ask({ title: '建立多人即時房間', msg: '帳本會上傳到雲端（Firebase）。拿到邀請連結的人都能檢視並編輯這本帳本，請只分享給一起分帳的朋友。', ok: '建立房間' })) return;
+  toast('建立中…');
+  let f; try { f = await getFirebase(); } catch (e) { toast('無法載入 Firebase，請檢查網路'); return; }
+  const id = uid(16), ref = f.doc(f.db, 'rooms', id), t = Date.now();
+  const writes = [[ref, { name: L.name, mainCurrency: L.mainCurrency, currencies: L.currencies, rounding: L.rounding, settled: L.settled, createdAt: t, updatedAt: t, v: 1 }],
+    ...L.members.map(m => [f.doc(ref, 'members', m.id), { name: m.name, createdAt: m.createdAt || t }]),
+    ...L.expenses.map(e => [f.doc(ref, 'expenses', e.id), expDoc(e)])];
+  try {
+    for (let i = 0; i < writes.length; i += 400) { const b = f.writeBatch(f.db); for (const [r, d] of writes.slice(i, i + 400)) b.set(r, d); await b.commit(); }
+  } catch (e) { console.error(e); toast('建立失敗：' + (e.code === 'permission-denied' ? '請檢查 Firestore 安全規則' : (e.code || e.message))); return; }
+  L.room = { id }; touch(L); connectRoom(L);
+  openDialog(`<h3>🎉 房間建好了</h3><p>把邀請連結傳到群組，朋友點開後選擇自己的名字就能一起記帳。</p>
+    <input class="input" readonly value="${esc(roomUrl(L))}" style="font-size:14px">
+    <div class="dlg-btns"><button type="button" class="btn dark" data-act="room-copy">複製連結</button><button type="button" class="btn line" data-act="room-line">傳到 LINE</button></div>
+    <div class="dlg-btns" style="margin-top:8px"><button type="button" class="btn ghost" data-act="dialog-cancel">完成</button></div>`,
+    null, () => { if (!L.me || !L.members.some(m => m.id === L.me)) setTimeout(() => openJoin(L), 150); });
+}
+async function joinRoom(id) {
+  id = String(id || '').toLowerCase();
+  if (!/^[a-z0-9]{12,40}$/.test(id)) { toast('房間連結格式不正確'); return; }
+  if (!FIREBASE_CONFIG) { await ask({ title: '無法加入房間', msg: '這個網頁還沒有設定 Firebase，所以沒辦法使用多人房間。請聯絡分享連結的人。', cancel: null, ok: '知道了' }); return; }
+  ui.shared = null;
+  let L = Object.values(store.ledgers).find(l => l.room?.id === id);
+  if (!L) { L = newLedger('載入中…'); L.room = { id }; addLedger(L); }
+  store.currentId = L.id; saveStore(); ui.tab = 'expenses';
+  render(); connectRoom(L);
+}
+function openJoin(L) {
+  if (!$('#dialog-root').hidden || !$('#sheet-root').hidden) return;
+  openDialog(`<h3>加入「${esc(L.name)}」</h3><p>${L.members.length ? '你是哪一位？選擇你的名字，或輸入新名字加入。' : '輸入你的名字加入這個房間。'}</p>
+    ${L.members.length ? `<div class="chips" style="margin-bottom:14px">${L.members.map(m => `<button type="button" class="chip-btn" data-join="${m.id}">${esc(m.name)}</button>`).join('')}</div>` : ''}
+    <div class="addrow"><input class="input" id="join-name" placeholder="你的名字" maxlength="20" enterkeyhint="done" autocomplete="off"><button type="button" class="btn primary" data-joinnew>加入</button></div>
+    <div class="dlg-btns"><button type="button" class="btn ghost" data-act="dialog-cancel">先看看就好</button></div>`, el => {
+    const addNew = () => {
+      const name = $('#join-name', el).value.trim(); if (!name) { toast('請輸入名字'); return; }
+      const ex = L.members.find(m => m.name === name);
+      if (ex) L.me = ex.id;
+      else { const m = { id: uid(), name: name.slice(0, 20), createdAt: Date.now() }; mutate(L, L => { L.members.push(m); }, (f, ref) => f.setDoc(f.doc(ref, 'members', m.id), { name: m.name, createdAt: m.createdAt })); L.me = m.id; }
+      touch(L); closeDialog(); toast(`歡迎，${name}！`);
+    };
+    el.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.join) { L.me = b.dataset.join; touch(L); closeDialog(); toast(`嗨，${memberName(L, L.me)}！`); }
+      else if ('joinnew' in b.dataset) addNew();
+    });
+    $('#join-name', el).addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addNew(); } });
+  });
+}
+
+/* ---------------- 事件 ---------------- */
+const ACT = {
+  'tab': b => { ui.tab = b.dataset.tab; render(); window.scrollTo(0, 0); },
+  'add-exp': () => openExpense(null),
+  'edit-exp': b => readonly() ? toast('這是唯讀的分享帳本，存成自己的帳本後即可編輯') : openExpense(b.dataset.id),
+  'sheet-close': () => closeSheet(),
+  'dialog-cancel': () => { const c = dialogCancel; closeDialog(); c?.(); },
+  'go-members': () => goMembers(),
+  'go-profile': () => { ui.tab = 'settings'; render(); setTimeout(() => $('[data-k="bankCode"]')?.scrollIntoView({ block: 'center' }), 60); },
+  'sync-info': () => toast(ui.sync.msg || { live: '已連線，所有人的修改會即時同步', connecting: '正在連線到房間…' }[ui.sync.status] || '同步狀態'),
+  'ledgers': () => {
+    const L = cur();
+    openSheet(`<div class="sheet-head"><span style="width:44px"></span><b>我的帳本</b><button type="button" class="link-btn" data-act="sheet-close">完成</button></div>
+      <div class="sheet-body">${store.order.map(id => {
+        const l = store.ledgers[id], st = computeLedger(l);
+        return `<button type="button" class="lrow${l === L ? ' on' : ''}" data-act="switch" data-id="${id}"><div><b>${esc(l.name)}</b><small>${l.members.length} 人 · ${l.expenses.length} 筆 · ${money(st.total, l.mainCurrency, l.rounding)}</small></div>${l.room ? '<span class="tag">☁ 房間</span>' : ''}</button>`;
+      }).join('') || '<p class="muted" style="text-align:center">還沒有帳本</p>'}
+      ${ui.shared ? `<p class="hint">目前正在檢視分享的帳本，切換後會關閉檢視。</p>` : ''}</div>
+      <div class="sheet-foot"><div class="btn-grid" style="margin:0"><button type="button" class="btn primary" data-act="new-ledger">＋ 新帳本</button><button type="button" class="btn" data-act="sample">載入範例</button></div></div>`);
+  },
+  'switch': b => { closeSheet(); ui.tab = 'expenses'; switchLedger(b.dataset.id); },
+  'new-ledger': async () => {
+    closeSheet();
+    const name = await askText({ title: '新帳本名稱', placeholder: '例如：東京五日遊、週五聚餐', ok: '建立' });
+    if (name === null) return;
+    ui.shared = null; clearHash();
+    const L = newLedger(name || '新帳本'); addLedger(L); disconnectRoom();
+    ui.tab = 'settings'; render(); toast('先新增一起分帳的成員吧'); goMembers();
+  },
+  'sample': () => { closeSheet(); ui.shared = null; clearHash(); const L = sampleLedger(); addLedger(L); disconnectRoom(); ui.tab = 'expenses'; render(); window.scrollTo(0, 0); toast('已載入範例帳本，到「結算與分享」看看結果'); },
+  'import': () => importBackup(),
+  'export': () => exportBackup(),
+  'del-ledger': async () => {
+    const L = cur(); if (!L || readonly()) return;
+    if (!await ask({ title: `刪除「${L.name}」？`, msg: L.room ? '只會刪除這台裝置上的帳本，雲端房間與其他成員的資料不受影響。' : '刪除後無法復原，建議先匯出備份。', ok: '刪除', danger: true })) return;
+    disconnectRoom(); delete store.ledgers[L.id]; store.order = store.order.filter(x => x !== L.id); store.currentId = store.order[0] || null;
+    saveStore(); ui.tab = 'expenses'; const n = cur(); if (n?.room) connectRoom(n); render(); toast('已刪除');
+  },
+  'round': b => {
+    const L = cur(), mode = b.dataset.mode; if (L.rounding === mode) return;
+    if (readonly()) { L.rounding = mode; render(); return; }
+    mutate(L, L => { L.rounding = mode; }, metaOp(L));
+  },
+  'settle-toggle': b => {
+    const L = cur(), key = b.dataset.key, on = !L.settled[key];
+    mutate(L, L => { if (on) L.settled[key] = true; else delete L.settled[key]; },
+      (f, ref) => f.updateDoc(ref, { [`settled.${key}`]: on ? true : f.deleteField(), updatedAt: Date.now() }));
+    if (on) toast('已標記為結清 ✓');
+  },
+  'copy-report': () => { const L = cur(), st = computeLedger(L); copyText(buildReport(L, st, settleView(L, st)), '已複製，貼到 LINE 就好'); },
+  'line-report': () => { const L = cur(), st = computeLedger(L); openLine(buildReport(L, st, settleView(L, st))); },
+  'make-image': () => { const L = cur(), st = computeLedger(L); ui.receipt = null; showReceipt(L, st, settleView(L, st)); setTimeout(() => $('#img-area img')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); },
+  'hide-image': () => { ui.receipt = null; $('#img-area').innerHTML = ''; },
+  'share-image': () => {
+    const cv = ui.receipt?.cv; if (!cv) return;
+    cv.toBlob(blob => {
+      const file = new File([blob], `${cur().name}_結算.png`, { type: 'image/png' });
+      navigator.share({ files: [file] }).catch(e => { if (e.name !== 'AbortError') toast('無法分享，請長按圖片儲存'); });
+    }, 'image/png');
+  },
+  'copy-link': () => { if (!ui.share.url || $('#share-link')?.value === '產生中…') return toast('連結產生中，請稍候'); copyText(ui.share.url, '連結已複製'); },
+  'line-link': () => { if (!ui.share.url) return toast('連結產生中，請稍候'); openLine(`🧾 ${cur().name} 的分帳明細，點開就能看：\n${ui.share.url}`); },
+  'share-link': () => { if (!ui.share.url) return toast('連結產生中，請稍候'); navigator.share({ title: cur().name, text: `🧾 ${cur().name} 的分帳明細`, url: ui.share.url }).catch(() => { }); },
+  'save-shared': () => {
+    const L = normalizeLedger({ ...ui.shared, id: uid(), updatedAt: Date.now() });
+    ui.shared = null; clearHash(); addLedger(L); disconnectRoom(); ui.tab = 'expenses'; render(); toast('已存成你的帳本，可以開始編輯了');
+  },
+  'close-shared': () => { ui.shared = null; clearHash(); const L = cur(); if (L?.room) connectRoom(L); render(); },
+  'add-member': () => {
+    const i = $('#add-member-input');
+    if (addMembers(cur(), i.value)) { ui.pendingRender = false; render(); $('#add-member-input')?.focus(); toast('已新增'); }
+    else if (!i.value.trim()) i.focus();
+  },
+  'del-member': b => deleteMember(cur(), b.dataset.id),
+  'set-me': b => { const L = cur(); L.me = L.me === b.dataset.id ? null : b.dataset.id; touch(L); },
+  'add-cur': async () => {
+    const L = cur(); let code = $('#add-cur-sel').value;
+    if (code === '__other') { code = (await askText({ title: '輸入幣別代碼', msg: '請輸入 3 個英文字母的國際代碼，例如 TRY（土耳其里拉）。', placeholder: 'ABC', maxlength: 3 }) || '').toUpperCase(); if (!code) return; }
+    if (!/^[A-Z]{3}$/.test(code)) return toast('幣別代碼需為 3 個英文字母');
+    if (code === L.mainCurrency || L.currencies.some(c => c.code === code)) return toast('這個幣別已經存在');
+    mutate(L, L => { L.currencies.push({ code, rate: '' }); }, metaOp(L));
+    setTimeout(() => { const i = $(`[data-code="${code}"].rate`); i?.focus(); }, 80);
+    toast(`已新增 ${code}，請填入匯率`);
+  },
+  'del-cur': async b => {
+    const L = cur(), code = b.dataset.code, n = L.expenses.filter(e => e.currency === code).length;
+    if (n) return ask({ title: `無法移除 ${code}`, msg: `還有 ${n} 筆消費使用 ${code}，請先修改那些消費的幣別。`, cancel: null, ok: '知道了' });
+    mutate(L, L => { L.currencies = L.currencies.filter(c => c.code !== code); }, metaOp(L));
+  },
+  'room-create': () => createRoom(cur()),
+  'room-copy': () => { const L = cur(); if (L?.room) copyText(roomUrl(L), '邀請連結已複製'); },
+  'room-line': () => { const L = cur(); if (L?.room) openLine(`🧾 一起來記「${L.name}」的帳！點連結輸入名字就能加入：\n${roomUrl(L)}`); },
+  'room-who': () => { const L = cur(); if (L?.room) openJoin(L); },
+  'room-leave': async () => {
+    const L = cur();
+    if (!await ask({ title: '離開房間？', msg: '這台裝置會保留目前的帳本副本，但之後不會再和其他人同步。', ok: '離開', danger: true })) return;
+    disconnectRoom(); L.room = null; touch(L); toast('已離開房間');
+  }
+};
+const CHG = {
+  'ledger-name': t => { const L = cur(), v = t.value.trim() || '未命名帳本'; if (v === L.name) return; mutate(L, L => { L.name = v.slice(0, 40); }, metaOp(L)); },
+  'member-name': t => {
+    const L = cur(), id = t.dataset.id, v = t.value.trim().slice(0, 20), m = L.members.find(x => x.id === id);
+    if (!m || v === m.name) return;
+    if (!v) { t.value = m.name; return toast('名字不能空白'); }
+    if (L.members.some(x => x.id !== id && x.name === v)) { t.value = m.name; return toast('已經有同名的成員'); }
+    mutate(L, () => { m.name = v; }, (f, ref) => f.setDoc(f.doc(ref, 'members', id), { name: v, createdAt: m.createdAt || Date.now() }));
+  },
+  'main-cur': async t => {
+    const L = cur(), B = t.value;
+    if (L.expenses.length && !await ask({ title: `把主結算幣別改成 ${B}？`, msg: L.currencies.some(c => c.code === B) ? `會依目前匯率自動換算其他幣別的匯率，並把原本的 ${L.mainCurrency} 改為外幣。` : `原本以 ${L.mainCurrency} 記錄的消費會變成外幣，需要另外填入 ${L.mainCurrency} 對 ${B} 的匯率。`, ok: '更改' })) { t.value = L.mainCurrency; return; }
+    mutate(L, L => changeMainCurrency(L, B), metaOp(L));
+  },
+  'cur-rate': t => {
+    const L = cur(), code = t.dataset.code, c = L.currencies.find(x => x.code === code); if (!c) return;
+    const v = parseScaled(t.value, 6);
+    if (t.value.trim() && !(v > 0n)) { toast('匯率需要是大於 0 的數字'); t.value = c.rate; return; }
+    const s = v ? scaledToStr(v, 6) : '';
+    if (s === c.rate) return;
+    mutate(L, () => { c.rate = s; }, metaOp(L));
+  },
+  'profile': t => { store.profile[t.dataset.k] = t.value.trim(); if (t.dataset.k === 'bankAccount' && !t.value.trim()) store.profile.attach = false; saveStore(); ui.receipt = null; },
+  'attach-bank': t => { store.profile.attach = t.checked; saveStore(); scheduleRender(); },
+  'attach-link': t => { ui.attachLink = t.checked; scheduleRender(); }
+};
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const fn = ACT[t.dataset.act]; if (!fn) return;
+  e.preventDefault(); fn(t, e);
+});
+document.addEventListener('change', e => { const t = e.target.closest('[data-chg]'); if (t) CHG[t.dataset.chg]?.(t, e); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && e.target.id === 'add-member-input') { e.preventDefault(); ACT['add-member'](); }
+  if (e.key === 'Escape') { if (!$('#dialog-root').hidden) ACT['dialog-cancel'](); else if (!$('#sheet-root').hidden) closeSheet(); }
+});
+window.addEventListener('storage', e => { if (e.key === STORE_KEY && !ui.conn) { store = loadStore(); scheduleRender(); } }); // 多分頁同步
+
+/* ---------------- 網址處理與啟動 ---------------- */
+async function handleHash() {
+  const h = location.hash.slice(1); if (!h) return;
+  const p = new URLSearchParams(h);
+  if (p.get('d')) {
+    try { ui.shared = await decodeShare(p.get('d')); ui.tab = 'settle'; disconnectRoom(); }
+    catch (e) { console.error(e); toast(e.message === 'old' ? '瀏覽器版本太舊，無法開啟這個連結' : '分享連結無法讀取，可能被截斷了'); clearHash(); }
+  } else if (p.get('room')) { clearHash(); await joinRoom(p.get('room')); }
+}
+window.addEventListener('hashchange', async () => { await handleHash(); render(); });
+(async function init() {
+  if (store.currentId && !store.ledgers[store.currentId]) store.currentId = store.order[0] || null;
+  if (!store.currentId && store.order.length) store.currentId = store.order[0];
+  await handleHash();
+  render();
+  const L = cur(); if (L?.room && !ui.shared) connectRoom(L);
+})();
+
+// 測試用掛勾（不影響正常使用）
+window.__splitbill = { allocate, minTransfers, roundLR, computeLedger, settleView, encodeShare, decodeShare, sampleLedger, parseScaled, itemCalc, get store() { return store; } };
+</script>
+</body>
+</html>
