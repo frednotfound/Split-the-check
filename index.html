@@ -308,7 +308,7 @@ const FIREBASE_CONFIG = {
   appId: "1:1234567890:web:abcdef"
 };
 */
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAPTQvLda3gvcqpdSekR3AVytly9ew8Aak",
   authDomain: "splitit-59961.firebaseapp.com",
   projectId: "splitit-59961",
@@ -317,6 +317,9 @@ const firebaseConfig = {
   appId: "1:264638858696:web:837b2ae9046b730d52ecfd"
 };
 /* ▲▲▲ */
+
+// 房間建立後保留幾天，到期由 Firestore TTL 自動刪除（需在 Google Cloud 設定 TTL 規則，見 README）
+const ROOM_KEEP_DAYS = 90;
 
 const FIREBASE_VERSION = '10.12.2';
 const APP_NAME = '分帳小幫手';
@@ -422,7 +425,7 @@ function normalizeLedger(l) {
   L.expenses = (Array.isArray(L.expenses) ? L.expenses : []).filter(e => e && e.id).map(normalizeExpense);
   L.rounding = L.rounding === 'decimal' ? 'decimal' : 'integer';
   L.settled = L.settled && typeof L.settled === 'object' ? L.settled : {};
-  L.room = L.room && L.room.id ? { id: String(L.room.id) } : null;
+  L.room = L.room && L.room.id ? { id: String(L.room.id), expireAt: +L.room.expireAt || null } : null;
   L.me = L.me ? String(L.me) : null;
   return L;
 }
@@ -859,6 +862,8 @@ function roomCardHTML(L) {
       <div class="link-box"><input class="input" readonly value="${esc(roomUrl(L))}" aria-label="房間邀請連結"></div>
       <div class="btn-grid"><button type="button" class="btn dark" data-act="room-copy">複製邀請連結</button><button type="button" class="btn line" data-act="room-line">傳到 LINE</button></div>
       <p class="hint">你在這個房間的身分：<b>${me ? esc(me.name) : '尚未選擇'}</b>　<a href="#" data-act="room-who" style="color:var(--accent);font-weight:700">更換</a></p>
+      ${roomExpireHint(L)}
+      <div class="btn-col"><button type="button" class="btn danger" data-act="room-delete">結算完畢，刪除雲端房間</button></div>
     </section>`;
   }
   return `<section class="card"><h2>☁️ 多人即時房間</h2>
@@ -866,6 +871,7 @@ function roomCardHTML(L) {
     <div class="btn-col"><button type="button" class="btn primary" data-act="room-create">建立房間並取得邀請連結</button></div></section>`;
 }
 const roomUrl = L => `${baseUrl()}#room=${L.room.id}`;
+const roomExpireHint = L => L.room?.expireAt ? `<p class="hint">🕒 這個房間會在 <b>${ymd(new Date(L.room.expireAt)).replace(/-/g, '/')}</b> 後自動刪除（建立後 ${ROOM_KEEP_DAYS} 天），大家手機上的本機副本不受影響。</p>` : '';
 const maskAcct = a => { const s = String(a || '').replace(/\s/g, ''); return s.length > 5 ? '•••' + s.slice(-5) : s; };
 
 function afterSettleRender(L, stats) {
@@ -929,7 +935,7 @@ function settingsHTML(L) {
 
   if (FIREBASE_CONFIG && !readonly()) {
     h += `<section class="card"><h2>多人即時房間</h2>`;
-    if (L.room) h += `<p class="hint">這本帳本已連結到雲端房間，修改會即時同步給所有成員。離開房間後，這台裝置會保留一份本機副本，不會影響其他人。</p><div class="btn-col"><button type="button" class="btn" data-act="room-copy">複製邀請連結</button><button type="button" class="btn danger" data-act="room-leave">離開房間（保留本機副本）</button></div>`;
+    if (L.room) h += `<p class="hint">這本帳本已連結到雲端房間，修改會即時同步給所有成員。「離開房間」只影響你自己；「刪除雲端房間」會刪掉所有人的雲端資料，但大家的本機副本會保留。</p>${roomExpireHint(L)}<div class="btn-col"><button type="button" class="btn" data-act="room-copy">複製邀請連結</button><button type="button" class="btn" data-act="room-leave">離開房間（保留本機副本）</button><button type="button" class="btn danger" data-act="room-delete">刪除雲端房間</button></div>`;
     else h += `<p class="hint">建立房間後，大家可以各自用手機輸入名字加入、一起記帳。</p><div class="btn-col"><button type="button" class="btn primary" data-act="room-create">建立多人房間</button></div>`;
     h += `</section>`;
   }
@@ -1125,7 +1131,7 @@ function saveExpense(L, ed, el) {
   const old = ed.id ? L.expenses.find(x => x.id === ed.id) : null;
   e.createdAt = old?.createdAt || Date.now(); e.updatedAt = Date.now();
   mutate(L, L => { const i = L.expenses.findIndex(x => x.id === e.id); if (i >= 0) L.expenses[i] = e; else L.expenses.push(e); },
-    (f, ref) => f.setDoc(f.doc(ref, 'expenses', e.id), expDoc(e)));
+    (f, ref) => f.setDoc(f.doc(ref, 'expenses', e.id), expDoc(e, L)));
   ui.lastCurrency = e.currency;
   closeSheet(); toast(old ? '已更新' : '已記下 ✓');
 }
@@ -1148,7 +1154,7 @@ function addMembers(L, text) {
     exist.add(name); add.push({ id: uid(), name, createdAt: Date.now() + add.length });
   }
   if (!add.length) return false;
-  mutate(L, L => { L.members.push(...add); }, (f, ref) => { const b = f.writeBatch(f.db); add.forEach(m => b.set(f.doc(ref, 'members', m.id), { name: m.name, createdAt: m.createdAt })); return b.commit(); });
+  mutate(L, L => { L.members.push(...add); }, (f, ref) => { const b = f.writeBatch(f.db); add.forEach(m => b.set(f.doc(ref, 'members', m.id), memberDoc(L, m))); return b.commit(); });
   return true;
 }
 function memberUsage(L, id) { const s = new Set([id]); return L.expenses.filter(e => e.payer === id || expenseWeights(e, s).some(([, w]) => w > 0n)); }
@@ -1396,8 +1402,12 @@ function getFirebase() {
   })().catch(e => { fbPromise = null; throw e; });
   return fbPromise;
 }
-function expDoc(e) {
-  return { title: e.title, amount: e.amount, currency: e.currency, payer: e.payer, date: e.date, mode: e.mode, participants: e.participants || [], shares: e.shares || {}, items: e.items || {}, service: e.service || '', discount: e.discount || 0, note: e.note || '', createdAt: e.createdAt || Date.now(), updatedAt: Date.now() };
+const tsMs = t => t == null ? null : (typeof t.toMillis === 'function' ? t.toMillis() : (typeof t === 'number' ? t : Date.parse(t) || null));
+// 讓房間裡每一筆資料都帶同一個到期日（TTL 不會連帶刪除子集合，所以每筆都要標）
+function withExp(L, o) { if (L?.room?.expireAt) o.expireAt = new Date(L.room.expireAt); return o; }
+const memberDoc = (L, m) => withExp(L, { name: m.name, createdAt: m.createdAt || Date.now() });
+function expDoc(e, L) {
+  return withExp(L, { title: e.title, amount: e.amount, currency: e.currency, payer: e.payer, date: e.date, mode: e.mode, participants: e.participants || [], shares: e.shares || {}, items: e.items || {}, service: e.service || '', discount: e.discount || 0, note: e.note || '', createdAt: e.createdAt || Date.now(), updatedAt: Date.now() });
 }
 function remote(L, op) {
   if (!L.room || !FIREBASE_CONFIG) return;
@@ -1409,7 +1419,7 @@ async function connectRoom(L) {
   if (!L?.room || !FIREBASE_CONFIG) return;
   if (ui.conn?.roomId === L.room.id) return;
   disconnectRoom();
-  const conn = { roomId: L.room.id, ledgerId: L.id, unsubs: [], loaded: { room: false, members: false, expenses: false }, prompted: false };
+  const conn = { roomId: L.room.id, ledgerId: L.id, unsubs: [], loaded: { room: false, members: false, expenses: false }, pending: { members: null, expenses: null }, prompted: false };
   ui.conn = conn; setSync('connecting');
   let f;
   try { f = await getFirebase(); } catch (e) { if (ui.conn === conn) setSync('error', '無法載入 Firebase，請檢查網路'); return; }
@@ -1426,48 +1436,83 @@ async function connectRoom(L) {
       if ((!L.me || !L.members.some(m => m.id === L.me)) && store.currentId === L.id && !ui.shared) setTimeout(() => openJoin(L), 200);
     }
   };
+  // 成員、消費的變動先暫存，確認房間還在、沒被關閉才寫進本機（房間被刪時本機副本才不會被清空）
+  const apply = () => {
+    const L = target(); if (!L || !conn.loaded.room || ui.conn !== conn) return;
+    if (conn.pending.members) { L.members = conn.pending.members; conn.pending.members = null; conn.loaded.members = true; }
+    if (conn.pending.expenses) { L.expenses = conn.pending.expenses; conn.pending.expenses = null; conn.loaded.expenses = true; }
+    after();
+  };
   conn.unsubs.push(f.onSnapshot(ref, { includeMetadataChanges: true }, snap => {
-    const L = target(); if (!L) return;
+    const L = target(); if (!L || ui.conn !== conn) return;
     if (!snap.exists()) { if (!snap.metadata.fromCache) roomMissing(L, conn); return; }
     const d = snap.data();
+    if (d.closed) { roomMissing(L, conn, true); return; }
+    L.room.expireAt = tsMs(d.expireAt);
     L.name = String(d.name || '未命名帳本'); L.mainCurrency = d.mainCurrency || 'TWD';
     L.currencies = Array.isArray(d.currencies) ? d.currencies.map(c => ({ code: c.code, rate: String(c.rate ?? '') })) : [];
     L.rounding = d.rounding === 'decimal' ? 'decimal' : 'integer'; L.settled = d.settled || {};
     conn.loaded.room = true; setSync(snap.metadata.fromCache ? 'offline' : 'live', snap.metadata.fromCache ? '目前離線，修改會在恢復連線後同步' : '');
-    after();
+    apply();
   }, onErr));
   conn.unsubs.push(f.onSnapshot(f.collection(ref, 'members'), qs => {
-    const L = target(); if (!L) return;
-    L.members = qs.docs.map(x => ({ id: x.id, name: String(x.data().name || '成員'), createdAt: +x.data().createdAt || 0 })).sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1));
-    conn.loaded.members = true; after();
+    conn.pending.members = qs.docs.map(x => ({ id: x.id, name: String(x.data().name || '成員'), createdAt: +x.data().createdAt || 0 })).sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1));
+    apply();
   }, onErr));
   conn.unsubs.push(f.onSnapshot(f.collection(ref, 'expenses'), qs => {
-    const L = target(); if (!L) return;
-    L.expenses = qs.docs.map(x => normalizeExpense({ id: x.id, ...x.data() }));
-    conn.loaded.expenses = true; after();
+    conn.pending.expenses = qs.docs.map(x => normalizeExpense({ id: x.id, ...x.data() }));
+    apply();
   }, onErr));
 }
-async function roomMissing(L, conn) {
+async function roomMissing(L, conn, closed = false) {
   if (ui.conn !== conn) return;
   disconnectRoom();
   const empty = !L.members.length && !L.expenses.length;
   if (empty) { delete store.ledgers[L.id]; store.order = store.order.filter(x => x !== L.id); store.currentId = store.order[0] || null; }
   else L.room = null;
   saveStore(); render();
-  await ask({ title: '找不到這個房間', msg: empty ? '邀請連結可能不完整，或房間已被刪除。' : '雲端房間已不存在，這本帳本已改為只存在這台裝置。', cancel: null, ok: '知道了' });
+  await ask({
+    title: closed || !empty ? '雲端房間已刪除' : '找不到這個房間', cancel: null, ok: '知道了',
+    msg: empty ? '邀請連結可能不完整，或房間已被刪除。' : `「${esc(L.name)}」的雲端房間已被刪除或到期。你手機上的帳本和結算結果都還在，之後只會存在這台裝置。`
+  });
+}
+// 結算完畢：刪除整個雲端房間（成員、消費、房間本身）
+async function deleteRoom(L) {
+  if (!L?.room) return;
+  if (!await ask({ title: '刪除雲端房間？', msg: '房間裡的所有雲端資料會被永久刪除，其他人也無法再同步或加入。<br><br>每個人手機上已經同步的帳本會保留下來，結算結果不會消失。', ok: '刪除房間', danger: true })) return;
+  toast('刪除中…');
+  let f; try { f = await getFirebase(); } catch (e) { toast('無法載入 Firebase，請檢查網路'); return; }
+  const ref = f.doc(f.db, 'rooms', L.room.id);
+  disconnectRoom(); renderHeader(L);
+  try {
+    // 先標記關閉，讓其他人停止同步並保留本機副本，再刪資料
+    try { await f.updateDoc(ref, { closed: true, updatedAt: Date.now() }); }
+    catch (e) { if (e.code !== 'not-found') throw e; }
+    await new Promise(r => setTimeout(r, 1500));
+    const [ms, es] = await Promise.all([f.getDocs(f.collection(ref, 'members')), f.getDocs(f.collection(ref, 'expenses'))]);
+    const refs = [...ms.docs, ...es.docs].map(d => d.ref);
+    for (let i = 0; i < refs.length; i += 400) { const b = f.writeBatch(f.db); refs.slice(i, i + 400).forEach(r => b.delete(r)); await b.commit(); }
+    await f.deleteDoc(ref);
+  } catch (e) {
+    console.error(e); connectRoom(L);
+    toast('刪除失敗：' + (e.code === 'permission-denied' ? '請先更新 Firestore 安全規則（見 README）' : (e.code || e.message)));
+    return;
+  }
+  L.room = null; touch(L); toast('雲端房間已刪除，帳本保留在這台裝置');
 }
 async function createRoom(L) {
   if (!await ask({ title: '建立多人即時房間', msg: '帳本會上傳到雲端（Firebase）。拿到邀請連結的人都能檢視並編輯這本帳本，請只分享給一起分帳的朋友。', ok: '建立房間' })) return;
   toast('建立中…');
   let f; try { f = await getFirebase(); } catch (e) { toast('無法載入 Firebase，請檢查網路'); return; }
   const id = uid(16), ref = f.doc(f.db, 'rooms', id), t = Date.now();
-  const writes = [[ref, { name: L.name, mainCurrency: L.mainCurrency, currencies: L.currencies, rounding: L.rounding, settled: L.settled, createdAt: t, updatedAt: t, v: 1 }],
-    ...L.members.map(m => [f.doc(ref, 'members', m.id), { name: m.name, createdAt: m.createdAt || t }]),
-    ...L.expenses.map(e => [f.doc(ref, 'expenses', e.id), expDoc(e)])];
+  const R = { room: { id, expireAt: t + ROOM_KEEP_DAYS * 86400000 } };
+  const writes = [[ref, withExp(R, { name: L.name, mainCurrency: L.mainCurrency, currencies: L.currencies, rounding: L.rounding, settled: L.settled, createdAt: t, updatedAt: t, v: 1 })],
+    ...L.members.map(m => [f.doc(ref, 'members', m.id), memberDoc(R, m)]),
+    ...L.expenses.map(e => [f.doc(ref, 'expenses', e.id), expDoc(e, R)])];
   try {
     for (let i = 0; i < writes.length; i += 400) { const b = f.writeBatch(f.db); for (const [r, d] of writes.slice(i, i + 400)) b.set(r, d); await b.commit(); }
   } catch (e) { console.error(e); toast('建立失敗：' + (e.code === 'permission-denied' ? '請檢查 Firestore 安全規則' : (e.code || e.message))); return; }
-  L.room = { id }; touch(L); connectRoom(L);
+  L.room = R.room; touch(L); connectRoom(L);
   openDialog(`<h3>🎉 房間建好了</h3><p>把邀請連結傳到群組，朋友點開後選擇自己的名字就能一起記帳。</p>
     <input class="input" readonly value="${esc(roomUrl(L))}" style="font-size:14px">
     <div class="dlg-btns"><button type="button" class="btn dark" data-act="room-copy">複製連結</button><button type="button" class="btn line" data-act="room-line">傳到 LINE</button></div>
@@ -1494,7 +1539,7 @@ function openJoin(L) {
       const name = $('#join-name', el).value.trim(); if (!name) { toast('請輸入名字'); return; }
       const ex = L.members.find(m => m.name === name);
       if (ex) L.me = ex.id;
-      else { const m = { id: uid(), name: name.slice(0, 20), createdAt: Date.now() }; mutate(L, L => { L.members.push(m); }, (f, ref) => f.setDoc(f.doc(ref, 'members', m.id), { name: m.name, createdAt: m.createdAt })); L.me = m.id; }
+      else { const m = { id: uid(), name: name.slice(0, 20), createdAt: Date.now() }; mutate(L, L => { L.members.push(m); }, (f, ref) => f.setDoc(f.doc(ref, 'members', m.id), memberDoc(L, m))); L.me = m.id; }
       touch(L); closeDialog(); toast(`歡迎，${name}！`);
     };
     el.addEventListener('click', e => {
@@ -1540,7 +1585,7 @@ const ACT = {
   'export': () => exportBackup(),
   'del-ledger': async () => {
     const L = cur(); if (!L || readonly()) return;
-    if (!await ask({ title: `刪除「${L.name}」？`, msg: L.room ? '只會刪除這台裝置上的帳本，雲端房間與其他成員的資料不受影響。' : '刪除後無法復原，建議先匯出備份。', ok: '刪除', danger: true })) return;
+    if (!await ask({ title: `刪除「${L.name}」？`, msg: L.room ? '只會刪除這台裝置上的帳本，雲端房間與其他成員的資料不受影響。要刪除雲端資料，請改用「刪除雲端房間」。' : '刪除後無法復原，建議先匯出備份。', ok: '刪除', danger: true })) return;
     disconnectRoom(); delete store.ledgers[L.id]; store.order = store.order.filter(x => x !== L.id); store.currentId = store.order[0] || null;
     saveStore(); ui.tab = 'expenses'; const n = cur(); if (n?.room) connectRoom(n); render(); toast('已刪除');
   },
@@ -1599,6 +1644,7 @@ const ACT = {
   'room-copy': () => { const L = cur(); if (L?.room) copyText(roomUrl(L), '邀請連結已複製'); },
   'room-line': () => { const L = cur(); if (L?.room) openLine(`🧾 一起來記「${L.name}」的帳！點連結輸入名字就能加入：\n${roomUrl(L)}`); },
   'room-who': () => { const L = cur(); if (L?.room) openJoin(L); },
+  'room-delete': () => deleteRoom(cur()),
   'room-leave': async () => {
     const L = cur();
     if (!await ask({ title: '離開房間？', msg: '這台裝置會保留目前的帳本副本，但之後不會再和其他人同步。', ok: '離開', danger: true })) return;
@@ -1612,7 +1658,7 @@ const CHG = {
     if (!m || v === m.name) return;
     if (!v) { t.value = m.name; return toast('名字不能空白'); }
     if (L.members.some(x => x.id !== id && x.name === v)) { t.value = m.name; return toast('已經有同名的成員'); }
-    mutate(L, () => { m.name = v; }, (f, ref) => f.setDoc(f.doc(ref, 'members', id), { name: v, createdAt: m.createdAt || Date.now() }));
+    mutate(L, () => { m.name = v; }, (f, ref) => f.setDoc(f.doc(ref, 'members', id), memberDoc(L, m)));
   },
   'main-cur': async t => {
     const L = cur(), B = t.value;
