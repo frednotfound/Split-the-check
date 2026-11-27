@@ -1,0 +1,86 @@
+FAIL 33 index.html:270 <svg> without aria-hidden or aria-label | fix: Add aria-hidden or an aria-label
+FAIL 33 index.html:276 <svg> without aria-hidden or aria-label | fix: Add aria-hidden or an aria-label
+FAIL 33 index.html:279 <svg> without aria-hidden or aria-label | fix: Add aria-hidden or an aria-label
+FAIL 33 index.html:282 <svg> without aria-hidden or aria-label | fix: Add aria-hidden or an aria-label
+FAIL 34 index.html:35 overflow-x: hidden on body.locked (breaks sticky) | fix: Use overflow-x: clip on both html and body, never hidden
+FAIL 39a index.html:118 focus state via border on .input:focus | fix: Focus ring via outline, not border
+FAIL 39a index.html:121 disabled via opacity alone on .input:disabled | fix: Three disabled channels: fill, ink and cursor, plus the disabled attribute
+FAIL 48 index.html:78 colour literal #5ff0aa outside tokens (color on .hero .pos) | fix: Lift the value into the token block
+FAIL 48 index.html:78 colour literal #ffad8a outside tokens (color on .hero .neg) | fix: Lift the value into the token block
+FAIL 48 index.html:79 colour literal #047a4c outside tokens (color on .hero .pos) | fix: Lift the value into the token block
+FAIL 48 index.html:79 colour literal #c23b0b outside tokens (color on .hero .neg) | fix: Lift the value into the token block
+FAIL 48 index.html:88 colour literal #fff outside tokens (color on .btn.line) | fix: Lift the value into the token block
+FAIL 48 index.html:90 colour literal #fff outside tokens (color on .btn.danger-fill) | fix: Lift the value into the token block
+FAIL 48 index.html:103 colour literal rgba(59,47,217,.55) outside tokens (box-shadow on #fab) | fix: Lift the value into the token block
+FAIL 48 index.html:103 colour literal rgba(0,0,0,.12) outside tokens (box-shadow on #fab) | fix: Lift the value into the token block
+FAIL 48 index.html:133 colour literal rgba(0,0,0,.12) outside tokens (box-shadow on .seg button.on) | fix: Lift the value into the token block
+FAIL 48 index.html:198 colour literal #fff outside tokens (border on .tr.done .check::after) | fix: Lift the value into the token block
+FAIL 48 index.html:243 colour literal rgba(8,10,18,.5) outside tokens (background on .backdrop) | fix: Lift the value into the token block
+FAIL 48 index.html:260 colour literal rgba(0,0,0,.2) outside tokens (box-shadow on #toast) | fix: Lift the value into the token block
+REFLEX 24b index.html:34 padding-bottom: calc(150px + env(safe-area-… (off the 4px scale) on body | fix: Use the 4px spacing scale
+REFLEX 24b index.html:42 margin-left: 6px (off the 4px scale) on h2 small | fix: Use the 4px spacing scale
+REFLEX 24b index.html:47 padding: 6px 14px 24px (off the 4px scale) on .wrap | fix: Use the 4px spacing scale
+REFLEX 24b index.html:55 gap: 10px (off the 4px scale) on .hdr | fix: Use the 4px spacing scale
+REFLEX 24b index.html:55 padding: 10px 14px (off the 4px scale) on .hdr | fix: Use the 4px spacing scale
+REFLEX 24b index.html:56 gap: 6px (off the 4px scale) on .ledger-btn | fix: Use the 4px spacing scale
+REFLEX 24b index.html:56 padding: 0 12px 0 14px (off the 4px scale) on .ledger-btn | fix: Use the 4px spacing scale
+REFLEX 24b index.html:60 gap: 6px (off the 4px scale) on .sync | fix: Use the 4px spacing scale
+REFLEX 24b index.html:60 padding: 0 11px (off the 4px scale) on .sync | fix: Use the 4px spacing scale
+REFLEX 24b index.html:65 padding: 0 14px (off the 4px scale) on .banner | fix: Use the 4px spacing scale
+REFLEX 24b index.html:66 padding: 12px 14px (off the 4px scale) on .banner>div | fix: Use the 4px spacing scale
+REFLEX 24b index.html:71 gap: 10px (off the 4px scale) on .sec-head | fix: Use the 4px spacing scale
+REFLEX 24b index.html:71 margin-bottom: 10px (off the 4px scale) on .sec-head | fix: Use the 4px spacing scale
+REFLEX 24b index.html:81 margin: 6px 0 0 (off the 4px scale) on .warnbox ul | fix: Use the 4px spacing scale
+REFLEX 24b index.html:84 gap: 6px (off the 4px scale) on .btn | fix: Use the 4px spacing scale
+REFLEX 24b index.html:95 margin-top: 10px (off the 4px scale) on .btn-grid | fix: Use the 4px spacing scale
+REFLEX 24b index.html:96 margin-top: 10px (off the 4px scale) on .btn-col | fix: Use the 4px spacing scale
+REFLEX 24b index.html:103 gap: 6px (off the 4px scale) on #fab | fix: Use the 4px spacing scale
+REFLEX 24b index.html:108 gap: 3px (off the 4px scale) on #tabs button | fix: Use the 4px spacing scale
+REFLEX 24b index.html:113 margin: 0 0 14px (off the 4px scale) on .field | fix: Use the 4px spacing scale
+REFLEX 24b index.html:114 margin-bottom: 6px (off the 4px scale) on .field>span | fix: Use the 4px spacing scale
+REFLEX 24b index.html:115 padding: 0 14px (off the 4px scale) on .input | fix: Use the 4px spacing scale
+REFLEX 24b index.html:122 gap: 10px (off the 4px scale) on .amt-row | fix: Use the 4px spacing scale
+REFLEX 24b index.html:126 margin: -6px 0 14px (off the 4px scale) on .conv | fix: Use the 4px spacing scale
+REFLEX 24b index.html:131 padding: 3px (off the 4px scale) on .seg | fix: Use the 4px spacing scale
+REFLEX 24b index.html:131 gap: 3px (off the 4px scale) on .seg | fix: Use the 4px spacing scale
+REFLEX 24b index.html:132 padding: 0 6px (off the 4px scale) on .seg button | fix: Use the 4px spacing scale
+REFLEX 24b index.html:135 gap: 10px (off the 4px scale) on .check-row | fix: Use the 4px spacing scale
+REFLEX 24b index.html:140 margin-bottom: 10px (off the 4px scale) on .split-tools | fix: Use the 4px spacing scale
+REFLEX 24b index.html:142 gap: 10px (off the 4px scale) on .prow | fix: Use the 4px spacing scale
+REFLEX 24b index.html:142 padding: 7px 12px (off the 4px scale) on .prow | fix: Use the 4px spacing scale
+REFLEX 24b index.html:154 margin-top: 6px (off the 4px scale) on .calc | fix: Use the 4px spacing scale
+REFLEX 24b index.html:154 padding: 14px (off the 4px scale) on .calc | fix: Use the 4px spacing scale
+REFLEX 24b index.html:155 margin-bottom: 10px (off the 4px scale) on .calc h3 | fix: Use the 4px spacing scale
+REFLEX 24b index.html:156 gap: 10px (off the 4px scale) on .calc-grid | fix: Use the 4px spacing scale
+REFLEX 24b index.html:156 margin-bottom: 10px (off the 4px scale) on .calc-grid | fix: Use the 4px spacing scale
+REFLEX 24b index.html:159 padding-right: 34px (off the 4px scale) on .suffix .input | fix: Use the 4px spacing scale
+REFLEX 24b index.html:162 padding: 3px 0 (off the 4px scale) on .calc-lines div | fix: Use the 4px spacing scale
+REFLEX 24b index.html:163 padding-top: 7px (off the 4px scale) on .calc-lines .tot | fix: Use the 4px spacing scale
+REFLEX 24b index.html:164 margin-top: 10px (off the 4px scale) on .status | fix: Use the 4px spacing scale
+REFLEX 24b index.html:164 padding: 10px 12px (off the 4px scale) on .status | fix: Use the 4px spacing scale
+REFLEX 24b index.html:170 margin: 18px 4px 6px (off the 4px scale) on .day | fix: Use the 4px spacing scale
+REFLEX 24b index.html:172 padding: 12px 14px (off the 4px scale) on .exp | fix: Use the 4px spacing scale
+REFLEX 24b index.html:182 padding: 30px 16px (off the 4px scale) on .empty | fix: Use the 4px spacing scale
+REFLEX 24b index.html:183 margin-bottom: 6px (off the 4px scale) on .empty b | fix: Use the 4px spacing scale
+REFLEX 24b index.html:186 padding: 11px 0 (off the 4px scale) on .bal | fix: Use the 4px spacing scale
+REFLEX 24b index.html:189 gap: 6px (off the 4px scale) on .bal-name | fix: Use the 4px spacing scale
+REFLEX 24b index.html:191 padding: 6px 10px (off the 4px scale) on .badge | fix: Use the 4px spacing scale
+REFLEX 24b index.html:194 padding: 1px 7px (off the 4px scale) on .me | fix: Use the 4px spacing scale
+REFLEX 24b index.html:206 padding: 18px (off the 4px scale) on .allclear | fix: Use the 4px spacing scale
+REFLEX 24b index.html:209 margin: 10px 0 0 (off the 4px scale) on pre.report | fix: Use the 4px spacing scale
+REFLEX 24b index.html:211 margin-top: 10px (off the 4px scale) on .link-box | fix: Use the 4px spacing scale
+REFLEX 24b index.html:221 gap: 6px (off the 4px scale) on .currow .eq | fix: Use the 4px spacing scale
+REFLEX 24b index.html:223 padding: 13px 14px (off the 4px scale) on .lrow | fix: Use the 4px spacing scale
+REFLEX 24b index.html:228 padding: 3px 8px (off the 4px scale) on .tag | fix: Use the 4px spacing scale
+REFLEX 24b index.html:234 margin: 10px 0 6px (off the 4px scale) on .welcome h1 | fix: Use the 4px spacing scale
+REFLEX 24b index.html:235 margin: 0 0 14px (off the 4px scale) on .welcome p | fix: Use the 4px spacing scale
+REFLEX 24b index.html:237 padding: 10px 12px (off the 4px scale) on .feat li | fix: Use the 4px spacing scale
+REFLEX 24b index.html:246 padding: 8px 10px (off the 4px scale) on .sheet-head | fix: Use the 4px spacing scale
+REFLEX 24b index.html:248 padding: 16px 14px (off the 4px scale) on .sheet-body | fix: Use the 4px spacing scale
+REFLEX 24b index.html:249 padding: 10px 14px calc(10px + env(s… (off the 4px scale) on .sheet-foot | fix: Use the 4px spacing scale
+REFLEX 24b index.html:256 padding: 10px (off the 4px scale) on .dialog textarea | fix: Use the 4px spacing scale
+REFLEX 24b index.html:260 padding: 11px 18px (off the 4px scale) on #toast | fix: Use the 4px spacing scale
+WARN 40 index.html:88 2.26:1 < 4.5:1 on .btn.line | fix: Raise the contrast to threshold
+WARN 40 index.html:90 2.32:1 < 4.5:1 on .btn.danger-fill | fix: Raise the contrast to threshold
+WARN 41 index.html:70 dark surface (L 22%) on .card sets no text colour | fix: Swap text to paper in the same rule
+WARN F3 index.html:40 no text-wrap: balance on any display head (4 head rule(s), e.g. h1,h2,h3) | fix: Add text-wrap: balance to h1/h2-level heads
