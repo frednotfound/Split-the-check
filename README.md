@@ -14,7 +14,7 @@
 3. 到 **Settings → Pages**，Source 選 **Deploy from a branch**，Branch 選 `main`，資料夾選 `/ (root)`，按 Save。
 4. 等一兩分鐘，網址會是 `https://你的帳號.github.io/split-bill/`。
 
-只要本地帳本和分享連結的話，做到這裡就完成了。 
+只要本地帳本和分享連結的話，做到這裡就完成了。
 
 ---
 

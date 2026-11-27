@@ -1,0 +1,15 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "polish",
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "project",
+  "genre": "modern-minimal",
+  "waived": [
+   "16"
+  ],
+  "prompt": "split-bill tool for group trips and meals",
+  "date": "2026-11-27"
+ }
+]

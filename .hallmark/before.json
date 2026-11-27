@@ -1,0 +1,126 @@
+{
+ "v": 1,
+ "at": "2026-11-27T02:05:19.439Z",
+ "scope": "app",
+ "summary": {
+  "fails": 19,
+  "reflex": 63,
+  "warns": 4
+ },
+ "files": {
+  "index.html": {
+   "handlers": [],
+   "links": [
+    "${ui.receipt.url}"
+   ],
+   "fields": [],
+   "hooks": [],
+   "ids": [
+    "add-cur-sel",
+    "add-member-input",
+    "app",
+    "dialog-root",
+    "dlg-in",
+    "f-amount",
+    "f-calc",
+    "f-conv",
+    "f-cur",
+    "f-date",
+    "f-discount",
+    "f-note",
+    "f-service",
+    "f-split",
+    "f-status",
+    "f-sum",
+    "f-title",
+    "fab",
+    "img-area",
+    "join-name",
+    "manual-copy",
+    "report-preview",
+    "share-len",
+    "share-link",
+    "sheet-root",
+    "tabs",
+    "toast",
+    "top"
+   ],
+   "scripts": []
+  }
+ },
+ "wiring": {
+  "handlers": [],
+  "links": [
+   "${ui.receipt.url}"
+  ],
+  "fields": [],
+  "hooks": [],
+  "ids": [
+   "add-cur-sel",
+   "add-member-input",
+   "app",
+   "dialog-root",
+   "dlg-in",
+   "f-amount",
+   "f-calc",
+   "f-conv",
+   "f-cur",
+   "f-date",
+   "f-discount",
+   "f-note",
+   "f-service",
+   "f-split",
+   "f-status",
+   "f-sum",
+   "f-title",
+   "fab",
+   "img-area",
+   "join-name",
+   "manual-copy",
+   "report-preview",
+   "share-len",
+   "share-link",
+   "sheet-root",
+   "tabs",
+   "toast",
+   "top"
+  ]
+ },
+ "scripts": {
+  "index.html": {
+   "queried": [
+    "[data-act]",
+    "[data-chg]",
+    "[data-r]",
+    "button"
+   ],
+   "hooked": [
+    "[data-act]"
+   ],
+   "dom": [
+    "[data-act]",
+    "button"
+   ],
+   "hides": true
+  }
+ },
+ "pages": {
+  "index.html": {
+   "links": [],
+   "fields": [],
+   "actions": [],
+   "forms": [],
+   "hooked": [
+    "[data-act]",
+    "button"
+   ],
+   "headings": [
+    "分帳小幫手"
+   ],
+   "figures": [],
+   "images": [],
+   "controls": 7,
+   "words": 20
+  }
+ }
+}
